@@ -254,13 +254,17 @@ uv sync  # or pip install -r requirements.txt
 
 **Too many style issues**:
 ```bash
-# Focus on critical issues only
-uv run python tools/ignition-perspective-linter.py --target . --severity ERROR,WARNING
+# Suppress noisy rules during initial adoption
+ignition-lint -p ./my-project --profile full --ignore-codes NAMING_PARAMETER,MISSING_DOCSTRING,LONG_LINE
+
+# Or create a .ignition-lintignore file for path-based suppression
+# See docs/SUPPRESSION.md for the full guide
 ```
 
 **False positives on valid code**:
+- Suppress individual lines with `# ignition-lint: disable=CODE` (Python scripts only)
+- Use `.ignition-lintignore` to exclude generated or template directories
 - Check if your Ignition version is supported
-- Review the issue details and suggestions
 - Report persistent false positives as GitHub issues
 
 **Performance with large projects**:

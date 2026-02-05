@@ -8,6 +8,7 @@ A comprehensive linting toolkit for Ignition® projects that combines naming con
 
 - **🎯 Naming Validation** – Enforces component and parameter styles across `view.json` files
 - **📋 Perspective Linting** – Runs schema-aware checks against Perspective views and resources
+- **🔇 Lint Suppression** – Suppress rules via CLI flags, ignore files, or inline comments
 - **⚡ FastMCP Server** – Provides AI agent integration for real-time validation workflows
 - **🚀 GitHub Action** – Drop-in CI integration for automated linting on push or PR
 - **🔧 CLI Tooling** – Local developer workflow with project-wide linting modes
@@ -53,10 +54,13 @@ uv sync
 ignition-lint --files "**/view.json" --component-style PascalCase --parameter-style camelCase
 
 # Lint an entire Ignition project with all checks
-ignition-lint --project /path/to/project --type all
+ignition-lint --project /path/to/project --profile full
 
 # Naming convention validation only
 ignition-lint --project /path/to/project --naming-only
+
+# Suppress specific rules globally
+ignition-lint --project /path/to/project --profile full --ignore-codes NAMING_PARAMETER,LONG_LINE
 ```
 
 ### GitHub Actions
@@ -77,6 +81,7 @@ jobs:
           files: "**/view.json"
           component_style: "PascalCase"
           parameter_style: "camelCase"
+          ignore_codes: ""  # optional: comma-separated rule codes to suppress
 ```
 
 ## 🛠️ Tooling Overview
@@ -103,10 +108,38 @@ jobs:
 
 ## 📚 Documentation Highlights
 
+- `docs/SUPPRESSION.md` – Suppressing rules: CLI flags, ignore files, inline comments
 - `docs/IGNITION-LINTER-INTEGRATION.md` – Integrating the linter into Ignition projects
 - `docs/LINTER-INTEGRATION-STRATEGY.md` – Recommended adoption patterns
 - `docs/VALIDATION-LINTING-STRATEGY.md` – Deep dive into validation methodology
 - `examples/` – Ready-to-run scenarios for demonstrating linting outcomes
+
+## 🔇 Lint Suppression
+
+Three mechanisms let you control which rules fire and where:
+
+1. **`--ignore-codes` flag** – Suppress rules globally across the entire run
+2. **`.ignition-lintignore` file** – Gitignore-style patterns with optional rule scoping per path
+3. **Inline comments** – `# ignition-lint: disable=CODE` directives in Python scripts
+
+```bash
+# Suppress rules from the command line
+ignition-lint -p ./project --profile full --ignore-codes NAMING_PARAMETER,NAMING_COMPONENT
+```
+
+```gitignore
+# .ignition-lintignore — place in your --project root
+scripts/generated/**
+com.inductiveautomation.perspective/views/_REFERENCE/**:NAMING_COMPONENT,GENERIC_COMPONENT_NAME
+```
+
+```python
+# ignition-lint: disable-file=MISSING_DOCSTRING
+def legacy_helper():
+    pass
+```
+
+See **[docs/SUPPRESSION.md](docs/SUPPRESSION.md)** for the full guide including all directive types, pattern syntax, rule code reference, and CI/CD examples.
 
 ## 🤖 FastMCP Integration
 

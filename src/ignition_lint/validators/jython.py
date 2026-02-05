@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ast
 import re
+import textwrap
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -133,8 +134,10 @@ class JythonValidator:
             )
 
     def _check_syntax(self, script: str, context: str) -> None:
+        # Ignition stores inline scripts with leading indentation; dedent before parsing
+        dedented = textwrap.dedent(script)
         try:
-            ast.parse(script)
+            ast.parse(dedented)
         except SyntaxError as exc:
             self.issues.append(
                 JythonIssue(
@@ -166,12 +169,25 @@ class JythonValidator:
                 )
             )
 
+        # Flag print statement syntax (print x) — should use print() function
+        if re.search(r"\bprint\s+[^(]", script):
+            self.issues.append(
+                JythonIssue(
+                    severity=LintSeverity.WARNING,
+                    code="JYTHON_PRINT_STATEMENT",
+                    message="Print statement found - use print() function for Jython compatibility.",
+                    suggestion="Change 'print x' to 'print(x)'",
+                )
+            )
+
+        # Suggest system.perspective.print() over bare print() in Perspective scripts
         if re.search(r"\bprint\s*\(", script) and "system.perspective.print" not in script:
             self.issues.append(
                 JythonIssue(
                     severity=LintSeverity.INFO,
-                    code="JYTHON_PRINT_STATEMENT",
-                    message="Use system.perspective.print() for Perspective logging.",
+                    code="JYTHON_PREFER_PERSPECTIVE_PRINT",
+                    message="Consider using system.perspective.print() for Perspective logging.",
+                    suggestion="Replace print() with system.perspective.print() for gateway log visibility",
                 )
             )
 

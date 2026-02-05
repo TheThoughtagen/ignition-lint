@@ -474,6 +474,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
     { name = "jsonschema" },
+    { name = "pathspec" },
 ]
 
 [package.optional-dependencies]
@@ -488,6 +489,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=22.0.0" },
     { name = "fastmcp", specifier = ">=2.0.0" },
     { name = "jsonschema", specifier = ">=4.25.1" },
+    { name = "pathspec", specifier = ">=0.11.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
 ]

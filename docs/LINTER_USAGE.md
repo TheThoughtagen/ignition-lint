@@ -128,6 +128,18 @@ uv run python ignition-perspective-linter.py --target /path/to/project --compone
 }
 ```
 
+## Suppressing Rules
+
+When adopting the linter on an existing project, you can suppress noisy rules and address them incrementally. Three mechanisms are available:
+
+| Mechanism | Scope | Example |
+|-----------|-------|---------|
+| `--ignore-codes` | Global | `--ignore-codes NAMING_PARAMETER,LONG_LINE` |
+| `.ignition-lintignore` | Per-path | `views/_REFERENCE/**:NAMING_COMPONENT` |
+| Inline comments | Per-line (scripts only) | `# ignition-lint: disable=LONG_LINE` |
+
+See **[SUPPRESSION.md](SUPPRESSION.md)** for the complete reference including all inline directives, pattern syntax, and CI/CD integration examples.
+
 ## Integration with Development Workflow
 
 ### CI/CD Pipeline Integration

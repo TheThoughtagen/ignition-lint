@@ -525,11 +525,11 @@
                       },
                       "inputType": {
                         "type": "string",
-                        "enum": ["scalar", "array", "dataset"]
+                        "enum": ["scalar", "array", "dataset", "range"]
                       },
                       "outputType": {
                         "type": "string",
-                        "enum": ["scalar", "color", "object"]
+                        "enum": ["scalar", "color", "object", "expression", "style-list"]
                       },
                       "fallback": {
                         "description": "Fallback value for map transforms"

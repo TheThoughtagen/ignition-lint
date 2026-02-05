@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
+
+if TYPE_CHECKING:
+    from .suppression import SuppressionConfig
 
 
 class LintSeverity(str, Enum):
@@ -55,8 +58,13 @@ class LintReport:
 
     issues: List[LintIssue] = field(default_factory=list)
     summary: Dict[str, int] = field(default_factory=dict)
+    suppression: Optional["SuppressionConfig"] = None
+    suppressed_count: int = 0
 
     def add_issue(self, issue: LintIssue) -> None:
+        if self.suppression and self.suppression.should_suppress(issue.code, issue.file_path):
+            self.suppressed_count += 1
+            return
         self.issues.append(issue)
         self.summary[issue.severity.value] = self.summary.get(issue.severity.value, 0) + 1
 
@@ -69,8 +77,6 @@ class LintReport:
 
     def merge(self, other: "LintReport") -> None:
         self.extend(other.issues)
-        for severity, count in other.summary.items():
-            self.summary[severity] = self.summary.get(severity, 0) + count
 
 
 def format_report_text(report: LintReport) -> str:
@@ -82,6 +88,8 @@ def format_report_text(report: LintReport) -> str:
 
     if not report.issues:
         lines.append("✅ No issues found")
+        if report.suppressed_count:
+            lines.append(f"🔇 {report.suppressed_count} issues suppressed")
         return "\n".join(lines)
 
     severity_order = LintSeverity.ordered_levels()
@@ -116,6 +124,10 @@ def format_report_text(report: LintReport) -> str:
         if issue.metadata:
             for key, value in issue.metadata.items():
                 lines.append(f"   {key}: {value}")
+        lines.append("")
+
+    if report.suppressed_count:
+        lines.append(f"🔇 {report.suppressed_count} issues suppressed")
         lines.append("")
 
     return "\n".join(lines).rstrip()

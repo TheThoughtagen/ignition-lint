@@ -36,6 +36,10 @@ inputs:
     description: 'Only run naming convention checks, skip empirical linter'
     required: false
     default: 'true'
+  ignore_codes:
+    description: 'Comma-separated rule codes to suppress globally'
+    required: false
+    default: ''
 
 outputs:
   result:
@@ -71,4 +75,5 @@ runs:
         INPUT_PROJECT_PATH: ${{ inputs.project_path }}
         INPUT_LINT_TYPE: ${{ inputs.lint_type }}
         INPUT_NAMING_ONLY: ${{ inputs.naming_only }}
+        INPUT_IGNORE_CODES: ${{ inputs.ignore_codes }}
       run: ignition-lint-action
