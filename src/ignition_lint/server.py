@@ -22,6 +22,7 @@ from .cli import (
     lint_scripts,
     schema_path_for,
 )
+from .suppression import build_suppression_config
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SCHEMA_MODE = "robust"
@@ -100,30 +101,42 @@ def check_linter_status() -> str:
 
 @mcp.tool()
 def lint_perspective_components(
-    project_path: str, component_type: Optional[str] = None, verbose: bool = False
+    project_path: str,
+    component_type: Optional[str] = None,
+    verbose: bool = False,
+    ignore_codes: Optional[str] = None,
 ) -> str:
     """Lint Perspective components in an Ignition project."""
     perspective_dir = Path(project_path) / "com.inductiveautomation.perspective" / "views"
     if not perspective_dir.exists():
         return f"ℹ️  No Perspective views found at {perspective_dir}"
 
-    report = lint_perspective(
-        perspective_dir,
-        DEFAULT_SCHEMA_MODE,
-        component_type,
-        verbose,
+    suppression = build_suppression_config(
+        ignore_codes=ignore_codes,
+        project_root=Path(project_path),
     )
+    report = LintReport(suppression=suppression)
+    report.merge(lint_perspective(perspective_dir, DEFAULT_SCHEMA_MODE, component_type, verbose))
     return format_report_text(report)
 
 
 @mcp.tool()
-def lint_jython_scripts(project_path: str, verbose: bool = False) -> str:
+def lint_jython_scripts(
+    project_path: str,
+    verbose: bool = False,
+    ignore_codes: Optional[str] = None,
+) -> str:
     """Lint Jython/Python scripts in an Ignition project."""
     script_dir = Path(project_path) / "ignition" / "script-python"
     if not script_dir.exists():
         return f"ℹ️  No script-python directory found at {script_dir}"
 
-    report = lint_scripts(script_dir, verbose)
+    suppression = build_suppression_config(
+        ignore_codes=ignore_codes,
+        project_root=Path(project_path),
+    )
+    report = LintReport(suppression=suppression)
+    report.merge(lint_scripts(script_dir, verbose))
     return format_report_text(report)
 
 
@@ -133,10 +146,15 @@ def lint_ignition_project(
     lint_type: str = "all",
     component_type: Optional[str] = None,
     verbose: bool = False,
+    ignore_codes: Optional[str] = None,
 ) -> str:
     """Comprehensive linting for an Ignition project."""
     root = Path(project_path)
-    aggregate = LintReport()
+    suppression = build_suppression_config(
+        ignore_codes=ignore_codes,
+        project_root=root,
+    )
+    aggregate = LintReport(suppression=suppression)
 
     if lint_type in {"all", "perspective"}:
         perspective_dir = root / "com.inductiveautomation.perspective" / "views"

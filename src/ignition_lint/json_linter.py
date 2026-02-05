@@ -149,28 +149,29 @@ class JsonLinter:
     def _check_parameter_names(self, data: Any, file_path: str, location: str) -> None:
         """
         Check parameter names in the JSON structure.
-        
+
+        Only checks top-level keys of params/custom dicts — these are the
+        user-defined parameter and custom property names.  Keys inside nested
+        objects or arrays are data values, not naming targets.
+
         Args:
             data: JSON data to check for parameter names
             file_path: Path to the file being checked
             location: Current location in the JSON structure
         """
-        if isinstance(data, dict):
-            for key, value in data.items():
-                # Check the key itself as a parameter name
-                if not self.parameter_checker.is_correct_style(key):
-                    self.errors.append(ValidationError(
-                        file_path, "parameter", key,
-                        self.parameter_checker.get_style_description(), location
-                    ))
-                
-                # Recursively check nested structures
-                if isinstance(value, (dict, list)):
-                    self._check_parameter_names(value, file_path, f"{location}.{key}")
-                    
-        elif isinstance(data, list):
-            for i, item in enumerate(data):
-                self._check_parameter_names(item, file_path, f"{location}[{i}]")
+        if not isinstance(data, dict):
+            return
+
+        for key in data:
+            # Skip Ignition-internal $-prefixed properties
+            if key.startswith("$"):
+                continue
+
+            if not self.parameter_checker.is_correct_style(key):
+                self.errors.append(ValidationError(
+                    file_path, "parameter", key,
+                    self.parameter_checker.get_style_description(), location
+                ))
     
     def print_errors(self) -> None:
         """Print all validation errors in a formatted way."""

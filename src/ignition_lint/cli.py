@@ -16,6 +16,7 @@ from .perspective.linter import (
 )
 from .reporting import LintIssue, LintReport, LintSeverity, format_report_text
 from .scripts.linter import IgnitionScriptLinter, LintSeverity as ScriptSeverity, ScriptLintIssue
+from .suppression import build_suppression_config
 
 SCHEMA_FILES = {
     "strict": "core-ia-components-schema.json",
@@ -183,6 +184,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--report-format", choices=["text", "json"], default="text", help="Output format")
     parser.add_argument("--fail-on", choices=[level.value for level in LintSeverity], default=LintSeverity.ERROR.value, help="Severity threshold that causes a non-zero exit code")
     parser.add_argument("--check-linter", action="store_true", help="Verify schema assets are available and exit")
+    parser.add_argument("--ignore-codes", help="Comma-separated rule codes to suppress globally")
+    parser.add_argument("--ignore-file", help="Path to ignore file (default: {project}/.ignition-lintignore)")
     return parser.parse_args()
 
 
@@ -192,7 +195,14 @@ def main() -> int:
     if args.check_linter:
         return 0 if check_linter_availability(args.schema_mode) else 1
 
-    report = LintReport()
+    project_root = Path(args.project).resolve() if args.project else None
+    ignore_file = Path(args.ignore_file) if args.ignore_file else None
+    suppression = build_suppression_config(
+        ignore_codes=args.ignore_codes,
+        project_root=project_root,
+        ignore_file=ignore_file,
+    )
+    report = LintReport(suppression=suppression)
     fail_threshold = LintSeverity.from_string(args.fail_on)
 
     if args.files:

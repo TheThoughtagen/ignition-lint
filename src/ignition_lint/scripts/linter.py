@@ -47,11 +47,18 @@ class ScriptLintIssue:
         location = f":{self.line_number}" if self.line_number else ""
         return f"{self.severity.value}: {self.code} - {self.message} ({self.file_path}{location})"
 
+_INLINE_DISABLE_FILE = re.compile(r'#\s*ignition-lint:\s*disable-file\s*=\s*(.+)')
+_INLINE_DISABLE_NEXT = re.compile(r'#\s*ignition-lint:\s*disable-next\s*=\s*(.+)')
+_INLINE_DISABLE_LINE = re.compile(r'#\s*ignition-lint:\s*disable-line\s*=\s*(.+)')
+_INLINE_DISABLE = re.compile(r'#\s*ignition-lint:\s*disable\s*=\s*(.+)')
+
+
 class IgnitionScriptLinter:
     def __init__(self):
         self.issues: List[ScriptLintIssue] = []
         self.files_processed = 0
         self.total_lines_analyzed = 0
+        self._current_suppressions: Optional[Dict[str, Any]] = None
         
         # Ignition system modules and functions
         self.ignition_system_modules = {
@@ -95,6 +102,58 @@ class IgnitionScriptLinter:
             'global_vars': re.compile(r'^\s*global\s+\w+'),
         }
 
+    @staticmethod
+    def _parse_inline_suppressions(lines: List[str]) -> Dict[str, Any]:
+        """Scan lines for ignition-lint inline suppression comments."""
+        file_codes: Set[str] = set()
+        line_codes: Dict[int, Set[str]] = {}
+
+        for i, line in enumerate(lines):
+            line_num = i + 1
+
+            # disable-file — only recognised in the first 10 lines
+            if line_num <= 10:
+                m = _INLINE_DISABLE_FILE.search(line)
+                if m:
+                    file_codes.update(c.strip() for c in m.group(1).split(",") if c.strip())
+                    continue
+
+            # disable-next — suppresses the *following* line
+            m = _INLINE_DISABLE_NEXT.search(line)
+            if m:
+                codes = {c.strip() for c in m.group(1).split(",") if c.strip()}
+                line_codes.setdefault(line_num + 1, set()).update(codes)
+                continue
+
+            # disable-line — explicit current-line suppression
+            m = _INLINE_DISABLE_LINE.search(line)
+            if m:
+                codes = {c.strip() for c in m.group(1).split(",") if c.strip()}
+                line_codes.setdefault(line_num, set()).update(codes)
+                continue
+
+            # disable (shorthand) — inline on current line
+            m = _INLINE_DISABLE.search(line)
+            if m:
+                codes = {c.strip() for c in m.group(1).split(",") if c.strip()}
+                line_codes.setdefault(line_num, set()).update(codes)
+
+        return {"file": file_codes, "lines": line_codes}
+
+    def _is_suppressed(self, code: str, line_number: Optional[int]) -> bool:
+        if self._current_suppressions is None:
+            return False
+        if code in self._current_suppressions["file"]:
+            return True
+        if line_number and line_number in self._current_suppressions["lines"]:
+            if code in self._current_suppressions["lines"][line_number]:
+                return True
+        return False
+
+    def _add_issue(self, issue: ScriptLintIssue) -> None:
+        if not self._is_suppressed(issue.code, issue.line_number):
+            self.issues.append(issue)
+
     def lint_directory(self, target_path: str, recursive: bool = True) -> Dict[str, Any]:
         """Lint all Python files in the specified directory."""
         target = Path(target_path)
@@ -128,10 +187,11 @@ class IgnitionScriptLinter:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
                 lines = content.split('\n')
-                
+
+            self._current_suppressions = self._parse_inline_suppressions(lines)
             self.files_processed += 1
             self.total_lines_analyzed += len(lines)
-            
+
             # Perform various checks
             self._check_syntax(file_path, content)
             self._check_jython_compatibility(file_path, content, lines)
@@ -146,6 +206,8 @@ class IgnitionScriptLinter:
                 message=f"Could not read file: {str(e)}",
                 file_path=str(file_path)
             ))
+        finally:
+            self._current_suppressions = None
     
     def _check_syntax(self, file_path: Path, content: str):
         """Check basic Python syntax."""
@@ -153,7 +215,7 @@ class IgnitionScriptLinter:
             # Try to parse with Python AST
             ast.parse(content)
         except SyntaxError as e:
-            self.issues.append(ScriptLintIssue(
+            self._add_issue(ScriptLintIssue(
                 severity=LintSeverity.ERROR,
                 code="SYNTAX_ERROR",
                 message=f"Python syntax error: {e.msg}",
@@ -163,7 +225,7 @@ class IgnitionScriptLinter:
                 suggestion=f"Fix syntax error: {e.text.strip() if e.text else 'check code structure'}"
             ))
         except Exception as e:
-            self.issues.append(ScriptLintIssue(
+            self._add_issue(ScriptLintIssue(
                 severity=LintSeverity.WARNING,
                 code="PARSE_WARNING",
                 message=f"Could not fully parse file: {str(e)}",
@@ -177,7 +239,7 @@ class IgnitionScriptLinter:
         for line_num, line in enumerate(lines, 1):
             # Check for print statements (should be print functions in Jython)
             if self.python2_patterns['print_statement'].search(line):
-                self.issues.append(ScriptLintIssue(
+                self._add_issue(ScriptLintIssue(
                     severity=LintSeverity.WARNING,
                     code="JYTHON_PRINT_STATEMENT",
                     message="Print statement found - use print() function for Jython compatibility",
@@ -188,7 +250,7 @@ class IgnitionScriptLinter:
             
             # Check for xrange (Python 2) vs range (Python 3)
             if self.python2_patterns['xrange'].search(line):
-                self.issues.append(ScriptLintIssue(
+                self._add_issue(ScriptLintIssue(
                     severity=LintSeverity.INFO,
                     code="JYTHON_XRANGE_USAGE",
                     message="xrange() found - consider using range() for consistency",
@@ -199,7 +261,7 @@ class IgnitionScriptLinter:
             
             # Check for deprecated dictionary methods
             if self.python2_patterns['iteritems'].search(line):
-                self.issues.append(ScriptLintIssue(
+                self._add_issue(ScriptLintIssue(
                     severity=LintSeverity.WARNING,
                     code="JYTHON_DEPRECATED_ITERITEMS",
                     message="dict.iteritems() is deprecated - use dict.items()",
@@ -210,7 +272,7 @@ class IgnitionScriptLinter:
             
             # Check for string type issues
             if self.python2_patterns['string_types'].search(line):
-                self.issues.append(ScriptLintIssue(
+                self._add_issue(ScriptLintIssue(
                     severity=LintSeverity.WARNING,
                     code="JYTHON_STRING_TYPES",
                     message="basestring/unicode types found - may cause compatibility issues",
@@ -238,7 +300,7 @@ class IgnitionScriptLinter:
             
             # Check for anti-patterns
             if self.antipatterns['system_override'].search(line):
-                self.issues.append(ScriptLintIssue(
+                self._add_issue(ScriptLintIssue(
                     severity=LintSeverity.ERROR,
                     code="IGNITION_SYSTEM_OVERRIDE",
                     message="Overriding 'system' variable breaks Ignition functionality",
@@ -249,7 +311,7 @@ class IgnitionScriptLinter:
             
             # Check for hardcoded URLs
             if self.antipatterns['hardcoded_gateway'].search(line):
-                self.issues.append(ScriptLintIssue(
+                self._add_issue(ScriptLintIssue(
                     severity=LintSeverity.WARNING,
                     code="IGNITION_HARDCODED_GATEWAY",
                     message="Hardcoded gateway URL found - use system properties instead",
@@ -260,7 +322,7 @@ class IgnitionScriptLinter:
             
             # Check for debugging print statements
             if self.antipatterns['print_debug'].search(line):
-                self.issues.append(ScriptLintIssue(
+                self._add_issue(ScriptLintIssue(
                     severity=LintSeverity.INFO,
                     code="IGNITION_DEBUG_PRINT",
                     message="Debug print statement found - consider using logger instead",
@@ -277,7 +339,7 @@ class IgnitionScriptLinter:
                 if len(parts) >= 2:
                     module_path = '.'.join(parts[:2])
                     if module_path not in self.ignition_system_modules:
-                        self.issues.append(ScriptLintIssue(
+                        self._add_issue(ScriptLintIssue(
                             severity=LintSeverity.WARNING,
                             code="IGNITION_UNKNOWN_SYSTEM_CALL",
                             message=f"Unknown system function call: {call}",
@@ -302,7 +364,7 @@ class IgnitionScriptLinter:
         
         # Report Java integration patterns (informational)
         if java_imports_found:
-            self.issues.append(ScriptLintIssue(
+            self._add_issue(ScriptLintIssue(
                 severity=LintSeverity.INFO,
                 code="JAVA_INTEGRATION_DETECTED",
                 message=f"Java imports detected ({len(java_imports_found)} imports)",
@@ -316,7 +378,7 @@ class IgnitionScriptLinter:
         # Check for long lines
         for line_num, line in enumerate(lines, 1):
             if len(line) > 120:
-                self.issues.append(ScriptLintIssue(
+                self._add_issue(ScriptLintIssue(
                     severity=LintSeverity.STYLE,
                     code="LONG_LINE",
                     message=f"Line too long ({len(line)} characters, recommend < 120)",
@@ -330,8 +392,11 @@ class IgnitionScriptLinter:
             tree = ast.parse(content)
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef):
+                    # Skip dunder methods and private functions
+                    if node.name.startswith('_'):
+                        continue
                     if not ast.get_docstring(node):
-                        self.issues.append(ScriptLintIssue(
+                        self._add_issue(ScriptLintIssue(
                             severity=LintSeverity.STYLE,
                             code="MISSING_DOCSTRING",
                             message=f"Function '{node.name}' missing docstring",
@@ -339,13 +404,13 @@ class IgnitionScriptLinter:
                             line_number=node.lineno,
                             suggestion="Add docstring describing function purpose and parameters"
                         ))
-        except:
+        except Exception:
             pass  # Skip if AST parsing fails
         
         # Check for global variable usage
         for line_num, line in enumerate(lines, 1):
             if self.antipatterns['global_vars'].search(line):
-                self.issues.append(ScriptLintIssue(
+                self._add_issue(ScriptLintIssue(
                     severity=LintSeverity.WARNING,
                     code="GLOBAL_VARIABLE_USAGE",
                     message="Global variable usage detected - consider alternatives",

@@ -16,6 +16,7 @@ from .cli import (
     lint_perspective,
     lint_scripts,
 )
+from .suppression import build_suppression_config
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -35,7 +36,13 @@ def main() -> None:
     schema_mode = os.getenv("INPUT_SCHEMA_MODE", "robust")
     fail_on = os.getenv("INPUT_FAIL_ON", LintSeverity.ERROR.value)
 
-    report = LintReport()
+    ignore_codes = os.getenv("INPUT_IGNORE_CODES")
+    proj_root = Path(project_path_env).resolve() if project_path_env else None
+    suppression = build_suppression_config(
+        ignore_codes=ignore_codes,
+        project_root=proj_root,
+    )
+    report = LintReport(suppression=suppression)
     fail_threshold = LintSeverity.from_string(fail_on)
 
     if project_path_env:
