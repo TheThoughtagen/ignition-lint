@@ -27,7 +27,7 @@ class SuppressionConfig:
             return False
 
         try:
-            rel_path = str(Path(file_path).resolve().relative_to(self.project_root))
+            rel_path = Path(file_path).resolve().relative_to(self.project_root).as_posix()
         except ValueError:
             return False
 
@@ -93,13 +93,19 @@ def build_suppression_config(
     blanket_spec = None
     rule_specs: List[Tuple[pathspec.PathSpec, Set[str]]] = []
 
-    if project_root:
+    if project_root or ignore_file:
         path = ignore_file or (project_root / ".ignition-lintignore")
         blanket_spec, rule_specs = load_ignition_lintignore(path)
+
+    resolved_root = (
+        project_root.resolve()
+        if project_root
+        else (ignore_file.parent.resolve() if ignore_file else None)
+    )
 
     return SuppressionConfig(
         ignore_codes=codes,
         blanket_path_spec=blanket_spec,
         rule_path_specs=rule_specs,
-        project_root=project_root.resolve() if project_root else None,
+        project_root=resolved_root,
     )

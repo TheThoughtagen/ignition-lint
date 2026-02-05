@@ -30,3 +30,58 @@ def test_detects_best_practices():
 def test_clean_script_produces_no_issues():
     script = "\ttry:\n\t\treturn system.date.now()\n\texcept Exception as err:\n\t\tsystem.perspective.print(str(err))"
     assert validate(script) == []
+
+
+class TestPy2Preprocessing:
+    """Ensure Python 2 constructs don't cause spurious JYTHON_SYNTAX_ERROR."""
+
+    def test_print_statement_no_syntax_error(self):
+        script = '\tprint "hello world"'
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" not in codes
+        assert "JYTHON_PRINT_STATEMENT" in codes
+
+    def test_print_variable_no_syntax_error(self):
+        script = "\tprint value"
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" not in codes
+        assert "JYTHON_PRINT_STATEMENT" in codes
+
+    def test_print_multiple_args_no_syntax_error(self):
+        script = '\tprint "x =", x, "y =", y'
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" not in codes
+
+    def test_print_redirect_no_syntax_error(self):
+        script = "\tprint >>sys.stderr, 'error'"
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" not in codes
+
+    def test_except_comma_syntax_no_error(self):
+        script = "\ttry:\n\t\tpass\n\texcept Exception, e:\n\t\tpass"
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" not in codes
+
+    def test_raise_comma_syntax_no_error(self):
+        script = '\traise ValueError, "bad value"'
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" not in codes
+
+    def test_genuine_syntax_error_still_caught(self):
+        script = "\tif x >\n\t\tpass"
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" in codes
+
+    def test_print_function_call_unchanged(self):
+        """print(x) should not be mangled by preprocessing."""
+        script = "\tprint(42)"
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" not in codes

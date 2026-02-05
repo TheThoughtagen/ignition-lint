@@ -103,11 +103,23 @@ See the [Suppression Guide](../guides/suppression.md) for the full reference.
 
 ### Schema Validation Errors
 
+Bad:
+
 ```json
-// fontSize should be a string like "14px", not a number
-"textStyle": {
-    "fontSize": 14    // ERROR
-    "fontSize": "14px" // OK
+{
+  "textStyle": {
+    "fontSize": 14
+  }
+}
+```
+
+Good:
+
+```json
+{
+  "textStyle": {
+    "fontSize": "14px"
+  }
 }
 ```
 

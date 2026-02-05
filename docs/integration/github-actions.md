@@ -96,7 +96,7 @@ jobs:
 The action:
 
 1. Sets up Python 3.10
-2. Installs ignition-lint via `pip install -e .`
+2. Installs ignition-lint-toolkit from PyPI (`pip install ignition-lint-toolkit`)
 3. Runs `ignition-lint-action` with environment variables mapped from the action inputs
 4. Exits with code 0 on success or 1 on failure
 

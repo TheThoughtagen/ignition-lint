@@ -14,7 +14,7 @@ title: Installation
 ## Install from PyPI
 
 ```bash
-pip install ignition-lint
+pip install ignition-lint-toolkit
 ```
 
 ## Install with uv (recommended)
@@ -59,7 +59,7 @@ You should see the CLI help output with available options and commands.
 
 ### VS Code
 
-Add the Ignition component schema to your `settings.json` for inline validation:
+If you cloned the repository, add the Ignition component schema to your `settings.json` for inline validation:
 
 ```json
 {
@@ -71,6 +71,14 @@ Add the Ignition component schema to your `settings.json` for inline validation:
   ]
 }
 ```
+
+For pip-installed users, find the schema path with:
+
+```bash
+python -c "from ignition_lint.schemas import schema_path_for; print(schema_path_for('robust'))"
+```
+
+Then use the printed absolute path as the `"url"` value.
 
 ## Next Steps
 

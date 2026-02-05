@@ -143,6 +143,8 @@ class ExpressionValidator:
 
         for m in _FUNCTION_CALL_RE.finditer(expression):
             func_name = m.group(1)
+            if func_name in _BAD_COMPONENT_REF_FUNCS:
+                continue
             if func_name not in KNOWN_EXPRESSION_FUNCTIONS:
                 issues.append(LintIssue(
                     severity=LintSeverity.INFO,

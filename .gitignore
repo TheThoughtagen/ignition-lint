@@ -298,6 +298,10 @@ yarn-error.log*
 *.rar
 *.7z
 
+# === Claude Code ===
+# Local settings contain user-specific paths; use .claude/settings.template.json as reference
+.claude/settings.local.json
+
 # === Security ===
 # API keys, tokens, secrets
 .secrets

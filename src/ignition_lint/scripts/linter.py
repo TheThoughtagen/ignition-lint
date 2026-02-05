@@ -170,12 +170,12 @@ class IgnitionScriptLinter:
         else:
             python_files = list(target.glob("*.py"))
         
-        print(f"🔍 Found {len(python_files)} Python script files")
-        
+        print(f"🔍 Found {len(python_files)} Python script files", file=sys.stderr)
+
         # Process each file
         for i, file_path in enumerate(python_files, 1):
             if i % 50 == 0 or i == len(python_files):
-                print(f"   Processing file {i}/{len(python_files)}...")
+                print(f"   Processing file {i}/{len(python_files)}...", file=sys.stderr)
             
             self._lint_file(file_path)
         

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Set
 
@@ -28,15 +29,15 @@ def check_linter_availability(schema_mode: str) -> bool:
     try:
         path = schema_path_for(schema_mode)
     except ValueError as exc:
-        print(f"❌ {exc}")
+        print(f"❌ {exc}", file=sys.stderr)
         return False
 
     if not path.exists():
-        print(f"❌ Schema file not found: {path}")
+        print(f"❌ Schema file not found: {path}", file=sys.stderr)
         return False
 
-    print("✅ Perspective schema available")
-    print(f"   Mode: {schema_mode} -> {path}")
+    print("✅ Perspective schema available", file=sys.stderr)
+    print(f"   Mode: {schema_mode} -> {path}", file=sys.stderr)
     return True
 
 
@@ -129,12 +130,12 @@ def lint_target_directory(
     py_files = list(target.rglob("*.py"))
 
     if not view_files and not py_files:
-        print(f"ℹ️  No view.json or .py files found under {target}")
+        print(f"ℹ️  No view.json or .py files found under {target}", file=sys.stderr)
         return report
 
     # Perspective checks on any view.json found
     if "perspective" in checks and view_files:
-        print(f"📁 Found {len(view_files)} view.json files")
+        print(f"📁 Found {len(view_files)} view.json files", file=sys.stderr)
         report.merge(lint_perspective_files(view_files, schema_mode, component_type))
 
     # Naming checks on any view.json found
@@ -245,10 +246,10 @@ def main() -> int:
     elif target_root:
         # --target: scan any directory recursively for view.json and .py
         if not target_root.exists():
-            print(f"❌ Target path does not exist: {target_root}")
+            print(f"❌ Target path does not exist: {target_root}", file=sys.stderr)
             return 1
         if not target_root.is_dir():
-            print(f"❌ Target path is not a directory: {target_root}")
+            print(f"❌ Target path is not a directory: {target_root}", file=sys.stderr)
             return 1
 
         checks = determine_checks(args.profile, args.checks, args.naming_only)
@@ -268,7 +269,7 @@ def main() -> int:
     elif args.project:
         project_path = Path(args.project).resolve()
         if not project_path.exists():
-            print(f"❌ Project path does not exist: {project_path}")
+            print(f"❌ Project path does not exist: {project_path}", file=sys.stderr)
             return 1
 
         checks = determine_checks(args.profile, args.checks, args.naming_only)
@@ -285,7 +286,7 @@ def main() -> int:
                     )
                 )
             else:
-                print(f"ℹ️  No Perspective views found at {perspective_path}")
+                print(f"ℹ️  No Perspective views found at {perspective_path}", file=sys.stderr)
 
         if "naming" in checks:
             perspective_path = project_path / "com.inductiveautomation.perspective" / "views"
@@ -302,16 +303,16 @@ def main() -> int:
                     )
                 )
             else:
-                print("ℹ️  Skipping naming checks (no Perspective views found)")
+                print("ℹ️  Skipping naming checks (no Perspective views found)", file=sys.stderr)
 
         if "scripts" in checks:
             scripts_path = project_path / "ignition" / "script-python"
             if scripts_path.exists():
                 report.merge(lint_scripts(scripts_path, args.verbose))
             else:
-                print(f"ℹ️  No script-python directory found at {scripts_path}")
+                print(f"ℹ️  No script-python directory found at {scripts_path}", file=sys.stderr)
     else:
-        print("❌ One of --project, --target, or --files is required")
+        print("❌ One of --project, --target, or --files is required", file=sys.stderr)
         return 1
 
     if args.report_format == "json":

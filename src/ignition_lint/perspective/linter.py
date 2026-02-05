@@ -80,10 +80,10 @@ class IgnitionPerspectiveLinter:
             with open(schema_path, 'r') as f:
                 return json.load(f)
         except FileNotFoundError:
-            print(f"ERROR: Schema file not found: {schema_path}")
+            print(f"ERROR: Schema file not found: {schema_path}", file=sys.stderr)
             sys.exit(1)
         except json.JSONDecodeError as e:
-            print(f"ERROR: Invalid JSON in schema file: {e}")
+            print(f"ERROR: Invalid JSON in schema file: {e}", file=sys.stderr)
             sys.exit(1)
     
     def find_view_files(self, target_path: str) -> List[str]:
@@ -92,7 +92,7 @@ class IgnitionPerspectiveLinter:
         target = Path(target_path)
         
         if not target.exists():
-            print(f"ERROR: Target path does not exist: {target_path}")
+            print(f"ERROR: Target path does not exist: {target_path}", file=sys.stderr)
             return []
         
         # Look for perspective views structure
@@ -833,29 +833,29 @@ class IgnitionPerspectiveLinter:
     
     def lint_project(self, target_path: str, target_component_type: Optional[str] = None) -> Dict[str, Any]:
         """Lint an entire Ignition project."""
-        print(f"🔍 Ignition Perspective Linter")
-        print(f"Target: {target_path}")
+        print(f"🔍 Ignition Perspective Linter", file=sys.stderr)
+        print(f"Target: {target_path}", file=sys.stderr)
         if target_component_type:
-            print(f"Component Filter: {target_component_type}")
-        print("=" * 60)
-        
+            print(f"Component Filter: {target_component_type}", file=sys.stderr)
+        print("=" * 60, file=sys.stderr)
+
         if not self.jsonschema_available:
-            print("⚠️  jsonschema dependency not available; skipping schema validation checks.")
-        
+            print("⚠️  jsonschema dependency not available; skipping schema validation checks.", file=sys.stderr)
+
         view_files = self.find_view_files(target_path)
-        
+
         if not view_files:
-            print("❌ No view.json files found in target directory")
+            print("❌ No view.json files found in target directory", file=sys.stderr)
             return {'success': False, 'message': 'No view files found'}
-        
-        print(f"📁 Found {len(view_files)} view files")
+
+        print(f"📁 Found {len(view_files)} view files", file=sys.stderr)
         
         self.component_stats['total_files'] = len(view_files)
         valid_files = 0
         
         for i, file_path in enumerate(view_files, 1):
             if i % 50 == 0:
-                print(f"   Processing file {i}/{len(view_files)}...")
+                print(f"   Processing file {i}/{len(view_files)}...", file=sys.stderr)
             
             file_valid = self.lint_file(file_path, target_component_type)
             if file_valid:
@@ -990,7 +990,7 @@ def main():
     result = linter.lint_project(args.target, args.component_type)
     
     if not result['success']:
-        print(f"❌ Linting failed: {result['message']}")
+        print(f"❌ Linting failed: {result['message']}", file=sys.stderr)
         sys.exit(1)
     
     # Generate report
@@ -1000,17 +1000,17 @@ def main():
     if args.output:
         with open(args.output, 'w') as f:
             f.write(report)
-        print(f"📝 Report saved to: {args.output}")
+        print(f"📝 Report saved to: {args.output}", file=sys.stderr)
     else:
         print(report)
-    
+
     # Exit with appropriate code
     critical_issues = len([i for i in linter.issues if i.severity == LintSeverity.ERROR])
     if critical_issues > 0:
-        print(f"\n❌ Linting completed with {critical_issues} critical errors")
+        print(f"\n❌ Linting completed with {critical_issues} critical errors", file=sys.stderr)
         sys.exit(1)
     else:
-        print(f"\n✅ Linting completed successfully")
+        print(f"\n✅ Linting completed successfully", file=sys.stderr)
         sys.exit(0)
 
 if __name__ == "__main__":

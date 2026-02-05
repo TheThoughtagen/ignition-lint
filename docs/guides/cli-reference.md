@@ -114,30 +114,31 @@ ignition-lint --project /path/to/project --profile full --verbose
 ### Summary Section
 
 ```
+============================================================
 📊 LINT RESULTS
 ============================================================
-📁 Files processed: 226
-🧩 Components analyzed: 2,660
-✅ Valid components: 2,533 (95.2%)
-❌ Invalid components: 127
-📈 Schema compliance: 95.2%
+📋 Issues by severity:
+  ❌ Error: 3
+  ⚠️ Warning: 12
+  ℹ️ Info: 5
+  💡 Style: 8
 ```
 
 ### Issue Details
 
 ```
-📄 path/to/view.json
-   ❌ SCHEMA_VALIDATION: fontSize should be string not number
-      Component: ia.display.label at root.children[0]
-      Suggestion: Path: props.textStyle.fontSize
+❌ [SCHEMA_VALIDATION] fontSize should be string not number
+   File: path/to/view.json
+   Component: ia.display.label at root.children[0]
+   Suggestion: Path: props.textStyle.fontSize
 ```
 
 Each issue includes:
-- **File path** — exact location of the problematic file
-- **Severity + Code** — issue category and rule identifier
+- **Severity + Code** — severity icon and rule identifier (e.g. `❌ [SCHEMA_VALIDATION]`)
 - **Message** — description of the problem
-- **Component path** — location within the view structure
-- **Suggestion** — specific guidance for resolution
+- **File path** — exact location of the problematic file (with line number if available)
+- **Component path** — location within the view structure (if applicable)
+- **Suggestion** — specific guidance for resolution (if available)
 
 ### Suppression Summary
 

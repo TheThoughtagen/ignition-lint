@@ -10,6 +10,44 @@ from typing import List, Optional
 from ..reporting import LintIssue, LintSeverity
 
 
+def _preprocess_py2(source: str) -> str:
+    """Transform common Python 2 constructs to Python 3 so ast.parse() succeeds.
+
+    Jython in Ignition uses Python 2 syntax.  This avoids spurious
+    JYTHON_SYNTAX_ERROR reports for valid Jython code while still letting
+    ast.parse() catch genuine errors.
+    """
+    # print >>stream, args  →  print(args, file=stream)
+    source = re.sub(
+        r"^(\s*)print[ \t]*>>[ \t]*(\S+)[ \t]*,[ \t]*(.+)$",
+        r"\1print(\3, file=\2)",
+        source,
+        flags=re.MULTILINE,
+    )
+    # print args  →  print(args)  (skip lines where print is already a function call)
+    source = re.sub(
+        r"^(\s*)print\b[ \t]+(?!\()(.+)$",
+        r"\1print(\2)",
+        source,
+        flags=re.MULTILINE,
+    )
+    # except Type, var:  →  except Type as var:
+    source = re.sub(
+        r"^(\s*except[ \t]+[\w.]+)[ \t]*,[ \t]*(\w+)[ \t]*:",
+        r"\1 as \2:",
+        source,
+        flags=re.MULTILINE,
+    )
+    # raise Type, value  →  raise Type(value)
+    source = re.sub(
+        r"^(\s*raise[ \t]+[\w.]+)[ \t]*,[ \t]*(.+)$",
+        r"\1(\2)",
+        source,
+        flags=re.MULTILINE,
+    )
+    return source
+
+
 @dataclass
 class JythonIssue:
     """Internal representation used before conversion to lint issue."""
@@ -136,8 +174,10 @@ class JythonValidator:
     def _check_syntax(self, script: str, context: str) -> None:
         # Ignition stores inline scripts with leading indentation; dedent before parsing
         dedented = textwrap.dedent(script)
+        # Transform Python 2 constructs so the Python 3 parser doesn't reject them
+        transformed = _preprocess_py2(dedented)
         try:
-            ast.parse(dedented)
+            ast.parse(transformed)
         except SyntaxError as exc:
             self.issues.append(
                 JythonIssue(
@@ -181,7 +221,7 @@ class JythonValidator:
             )
 
         # Suggest system.perspective.print() over bare print() in Perspective scripts
-        if re.search(r"\bprint\s*\(", script) and "system.perspective.print" not in script:
+        if re.search(r"(?<![.\w])print\s*\(", script):
             self.issues.append(
                 JythonIssue(
                     severity=LintSeverity.INFO,
