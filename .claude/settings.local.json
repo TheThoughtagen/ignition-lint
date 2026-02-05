@@ -21,7 +21,16 @@
       "Bash(uv run python -m build:*)",
       "Bash(uv run python:*)",
       "Bash(git -C /Users/pmannion/whiskeyhouse/ignition-lint status src/ignition_lint/schemas/)",
-      "Bash(git -C /Users/pmannion/whiskeyhouse/ignition-lint add src/ignition_lint/schemas/__init__.py src/ignition_lint/schemas/core-ia-components-schema.json src/ignition_lint/schemas/core-ia-components-schema-robust.json src/ignition_lint/schemas/core-ia-components-schema-permissive.json)"
+      "Bash(git -C /Users/pmannion/whiskeyhouse/ignition-lint add src/ignition_lint/schemas/__init__.py src/ignition_lint/schemas/core-ia-components-schema.json src/ignition_lint/schemas/core-ia-components-schema-robust.json src/ignition_lint/schemas/core-ia-components-schema-permissive.json)",
+      "Bash(gh repo view:*)",
+      "Bash(gh api:*)",
+      "Bash(grep:*)",
+      "WebFetch(domain:www.docs.inductiveautomation.com)",
+      "WebSearch",
+      "Bash(gh repo clone:*)",
+      "Bash(python3:*)",
+      "Bash(echo:*)",
+      "Bash(# Also test pointing at a single view''s parent folder uv run ignition-lint --target /Users/pmannion/data/projects/WHK-Global/com.inductiveautomation.perspective/views/ScheduleManagement --report-format json)"
     ],
     "deny": [],
     "ask": []
