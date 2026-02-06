@@ -73,7 +73,7 @@ def extract_ia_components(view_data: dict) -> list[dict]:
     return components
 
 
-def analyze_validation_error(component: dict, schema: dict) -> dict[str, Any]:
+def analyze_validation_error(component: dict, schema: dict) -> dict[str, Any] | None:
     """Analyze a specific validation error in detail"""
     try:
         validate(instance=component, schema=schema)
@@ -105,7 +105,7 @@ def analyze_codebase(
             "view_files": 0,
             "components": 0,
             "valid_components": 0,
-            "component_types": set(),
+            "component_types": [],
             "error_patterns": {},
             "property_type_usage": {},
         }
@@ -182,7 +182,7 @@ def analyze_codebase(
         "components": total_components,
         "valid_components": valid_components,
         "success_rate": success_rate,
-        "component_types": component_types,
+        "component_types": sorted(component_types),
         "error_patterns": dict(error_patterns),
         "property_type_usage": {
             k: {t: list(v) for t, v in types.items()}

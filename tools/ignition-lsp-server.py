@@ -17,16 +17,16 @@ class IgnitionLSPServer:
 
     def lint_document(self, file_path: str, content: str) -> list[dict[str, Any]]:
         """Convert linter issues to LSP diagnostics format"""
+        import os
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as f:
+            f.write(content)
+            temp_path = f.name
+
         try:
-            # Save content to temp file for linting
-            import tempfile
-
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False
-            ) as f:
-                f.write(content)
-                temp_path = f.name
-
             severity_map = {
                 "error": 1,  # LSP Error
                 "warning": 2,  # LSP Warning
@@ -43,7 +43,7 @@ class IgnitionLSPServer:
                 return diagnostics
 
             for issue in self.linter.issues:
-                line = issue.line_number if issue.line_number is not None else 0
+                line = (issue.line_number if issue.line_number is not None else 1) - 1
                 diagnostic = {
                     "range": {
                         "start": {"line": line, "character": 0},
@@ -55,11 +55,6 @@ class IgnitionLSPServer:
                     "code": issue.code or "unknown",
                 }
                 diagnostics.append(diagnostic)
-
-            # Cleanup
-            import os
-
-            os.unlink(temp_path)
 
             return diagnostics
 
@@ -75,6 +70,8 @@ class IgnitionLSPServer:
                     "source": "ignition-perspective-linter",
                 }
             ]
+        finally:
+            os.unlink(temp_path)
 
 
 def main():
