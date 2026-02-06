@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 try:
     from fastmcp import FastMCP
@@ -14,7 +14,6 @@ except ImportError:  # pragma: no cover - optional dependency
 
 from .cli import (
     LintReport,
-    LintSeverity,
     check_linter_availability,
     format_report_text,
     lint_naming,
@@ -32,7 +31,7 @@ if FastMCP is None:
 mcp = FastMCP("Ignition Linter")
 
 
-def _report_to_dict(report: LintReport) -> Dict[str, Any]:
+def _report_to_dict(report: LintReport) -> dict[str, Any]:
     return {
         "issues": [
             {
@@ -101,12 +100,14 @@ def check_linter_status() -> str:
 @mcp.tool()
 def lint_perspective_components(
     project_path: str,
-    component_type: Optional[str] = None,
+    component_type: str | None = None,
     verbose: bool = False,
-    ignore_codes: Optional[str] = None,
+    ignore_codes: str | None = None,
 ) -> str:
     """Lint Perspective components in an Ignition project."""
-    perspective_dir = Path(project_path) / "com.inductiveautomation.perspective" / "views"
+    perspective_dir = (
+        Path(project_path) / "com.inductiveautomation.perspective" / "views"
+    )
     if not perspective_dir.exists():
         return f"ℹ️  No Perspective views found at {perspective_dir}"
 
@@ -115,7 +116,9 @@ def lint_perspective_components(
         project_root=Path(project_path),
     )
     report = LintReport(suppression=suppression)
-    report.merge(lint_perspective(perspective_dir, DEFAULT_SCHEMA_MODE, component_type, verbose))
+    report.merge(
+        lint_perspective(perspective_dir, DEFAULT_SCHEMA_MODE, component_type, verbose)
+    )
     return format_report_text(report)
 
 
@@ -123,7 +126,7 @@ def lint_perspective_components(
 def lint_jython_scripts(
     project_path: str,
     verbose: bool = False,
-    ignore_codes: Optional[str] = None,
+    ignore_codes: str | None = None,
 ) -> str:
     """Lint Jython/Python scripts in an Ignition project."""
     script_dir = Path(project_path) / "ignition" / "script-python"
@@ -143,9 +146,9 @@ def lint_jython_scripts(
 def lint_ignition_project(
     project_path: str,
     lint_type: str = "all",
-    component_type: Optional[str] = None,
+    component_type: str | None = None,
     verbose: bool = False,
-    ignore_codes: Optional[str] = None,
+    ignore_codes: str | None = None,
 ) -> str:
     """Comprehensive linting for an Ignition project."""
     root = Path(project_path)

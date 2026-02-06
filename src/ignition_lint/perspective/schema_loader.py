@@ -1,13 +1,13 @@
 """Helpers for loading perspective component schemas."""
+
 from __future__ import annotations
 
-from typing import Dict
-
-from ..schemas import schema_path_for
 import json
 
+from ..schemas import schema_path_for
 
-def load_schema(mode: str = "robust") -> Dict:
+
+def load_schema(mode: str = "robust") -> dict:
     """Load a schema variant by mode name."""
     schema_path = schema_path_for(mode)
     if not schema_path.exists():

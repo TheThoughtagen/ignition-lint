@@ -1,11 +1,11 @@
 """Validation helpers for inline Jython/Python scripts in Ignition."""
+
 from __future__ import annotations
 
 import ast
 import re
 import textwrap
 from dataclasses import dataclass
-from typing import List, Optional
 
 from ..reporting import LintIssue, LintSeverity
 
@@ -24,9 +24,16 @@ def _preprocess_py2(source: str) -> str:
         source,
         flags=re.MULTILINE,
     )
-    # print args  →  print(args)  (skip lines where print is already a function call)
+    # print >>stream  (no args)  →  print(file=stream)
     source = re.sub(
-        r"^(\s*)print\b[ \t]+(?!\()(.+)$",
+        r"^(\s*)print[ \t]*>>[ \t]*(\S+)[ \t]*$",
+        r"\1print(file=\2)",
+        source,
+        flags=re.MULTILINE,
+    )
+    # print args  →  print(args)  (skip lines already handled: function calls and >> redirects)
+    source = re.sub(
+        r"^(\s*)print\b[ \t]+(?!>>)(?!\()(.+)$",
         r"\1print(\2)",
         source,
         flags=re.MULTILINE,
@@ -55,17 +62,19 @@ class JythonIssue:
     severity: LintSeverity
     code: str
     message: str
-    suggestion: Optional[str] = None
-    line_number: Optional[int] = None
+    suggestion: str | None = None
+    line_number: int | None = None
 
 
 class JythonValidator:
     """Validates inline Jython scripts from Ignition projects."""
 
     def __init__(self) -> None:
-        self.issues: List[JythonIssue] = []
+        self.issues: list[JythonIssue] = []
 
-    def validate_script(self, script_content: str, context: str = "script") -> List[LintIssue]:
+    def validate_script(
+        self, script_content: str, context: str = "script"
+    ) -> list[LintIssue]:
         """Validate a script and return normalized lint issues."""
         self.issues = []
 
@@ -76,7 +85,7 @@ class JythonValidator:
         self._check_syntax(script_content, context)
         self._check_ignition_patterns(script_content, context)
 
-        lint_issues: List[LintIssue] = []
+        lint_issues: list[LintIssue] = []
         for issue in self.issues:
             lint_issues.append(
                 LintIssue(

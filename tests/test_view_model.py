@@ -1,7 +1,6 @@
 """Tests for the flattened ViewModel."""
-import pytest
 
-from ignition_lint.perspective.view_model import build_view_model, ViewModel
+from ignition_lint.perspective.view_model import build_view_model
 
 
 def test_extracts_custom_properties():
@@ -37,9 +36,7 @@ def test_extracts_onchange_scripts():
             "type": "ia.container.flex",
             "children": [],
             "propConfig": {
-                "custom.myProp": {
-                    "onChange": {"script": "\tprint('changed')"}
-                }
+                "custom.myProp": {"onChange": {"script": "\tprint('changed')"}}
             },
         },
     }
@@ -58,7 +55,12 @@ def test_extracts_event_scripts():
             "events": {
                 "dom": {
                     "onClick": [
-                        {"type": "script", "config": {"script": "\tsystem.perspective.navigate('/home')"}}
+                        {
+                            "type": "script",
+                            "config": {
+                                "script": "\tsystem.perspective.navigate('/home')"
+                            },
+                        }
                     ]
                 }
             },

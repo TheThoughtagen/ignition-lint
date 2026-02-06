@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path
-
-import pytest
 
 from ignition_lint.reporting import LintIssue, LintReport, LintSeverity
-from ignition_lint.suppression import SuppressionConfig, build_suppression_config, load_ignition_lintignore
 from ignition_lint.scripts.linter import IgnitionScriptLinter
-
+from ignition_lint.suppression import (
+    SuppressionConfig,
+    build_suppression_config,
+    load_ignition_lintignore,
+)
 
 # ---------------------------------------------------------------------------
 # Mechanism 1: --ignore-codes
 # ---------------------------------------------------------------------------
+
 
 class TestIgnoreCodes:
     def test_matching_code_suppressed(self):
@@ -34,18 +35,22 @@ class TestIgnoreCodes:
         config = SuppressionConfig(ignore_codes={"LONG_LINE"})
         report = LintReport(suppression=config)
 
-        report.add_issue(LintIssue(
-            severity=LintSeverity.STYLE,
-            code="LONG_LINE",
-            message="too long",
-            file_path="/a.py",
-        ))
-        report.add_issue(LintIssue(
-            severity=LintSeverity.ERROR,
-            code="SYNTAX_ERROR",
-            message="bad syntax",
-            file_path="/a.py",
-        ))
+        report.add_issue(
+            LintIssue(
+                severity=LintSeverity.STYLE,
+                code="LONG_LINE",
+                message="too long",
+                file_path="/a.py",
+            )
+        )
+        report.add_issue(
+            LintIssue(
+                severity=LintSeverity.ERROR,
+                code="SYNTAX_ERROR",
+                message="bad syntax",
+                file_path="/a.py",
+            )
+        )
 
         assert len(report.issues) == 1
         assert report.issues[0].code == "SYNTAX_ERROR"
@@ -64,6 +69,7 @@ class TestIgnoreCodes:
 # Mechanism 2: .ignition-lintignore file
 # ---------------------------------------------------------------------------
 
+
 class TestLintIgnoreFile:
     def test_blanket_pattern(self, tmp_path):
         ignore = tmp_path / ".ignition-lintignore"
@@ -76,7 +82,9 @@ class TestLintIgnoreFile:
 
     def test_rule_specific_pattern(self, tmp_path):
         ignore = tmp_path / ".ignition-lintignore"
-        ignore.write_text("views/_REFERENCE/**:NAMING_COMPONENT,GENERIC_COMPONENT_NAME\n")
+        ignore.write_text(
+            "views/_REFERENCE/**:NAMING_COMPONENT,GENERIC_COMPONENT_NAME\n"
+        )
         blanket, rules = load_ignition_lintignore(ignore)
         assert blanket is None
         assert len(rules) == 1
@@ -147,6 +155,7 @@ class TestLintIgnoreFile:
 # Mechanism 3: Inline suppression (scripts only)
 # ---------------------------------------------------------------------------
 
+
 class TestInlineSuppression:
     def _make_linter_with_file(self, tmp_path, content: str) -> IgnitionScriptLinter:
         """Write content to a .py file and lint it."""
@@ -173,8 +182,7 @@ class TestInlineSuppression:
         long = "a" * 130
         f = tmp_path / "test_script.py"
         f.write_text(
-            f'x = "{long}"  # ignition-lint: disable=LONG_LINE\n'
-            f'y = "{long}"\n'
+            f'x = "{long}"  # ignition-lint: disable=LONG_LINE\ny = "{long}"\n'
         )
         linter = IgnitionScriptLinter()
         linter._lint_file(f)
@@ -187,9 +195,7 @@ class TestInlineSuppression:
         long = "a" * 130
         f = tmp_path / "test_script.py"
         f.write_text(
-            f'# ignition-lint: disable-next=LONG_LINE\n'
-            f'x = "{long}"\n'
-            f'y = "{long}"\n'
+            f'# ignition-lint: disable-next=LONG_LINE\nx = "{long}"\ny = "{long}"\n'
         )
         linter = IgnitionScriptLinter()
         linter._lint_file(f)
@@ -214,7 +220,9 @@ class TestInlineSuppression:
             x = "a" * 200
         """
         linter = self._make_linter_with_file(tmp_path, content)
-        suppressed = [i for i in linter.issues if i.code in ("MISSING_DOCSTRING", "LONG_LINE")]
+        suppressed = [
+            i for i in linter.issues if i.code in ("MISSING_DOCSTRING", "LONG_LINE")
+        ]
         assert len(suppressed) == 0
 
     def test_non_matching_code_passes_through(self, tmp_path):
@@ -230,7 +238,11 @@ class TestInlineSuppression:
 
     def test_disable_file_only_first_10_lines(self, tmp_path):
         # A disable-file comment on line 12 should be ignored
-        lines = [""] * 11 + ["# ignition-lint: disable-file=MISSING_DOCSTRING", "def hello():", "    pass"]
+        lines = [""] * 11 + [
+            "# ignition-lint: disable-file=MISSING_DOCSTRING",
+            "def hello():",
+            "    pass",
+        ]
         content = "\n".join(lines)
         f = tmp_path / "script.py"
         f.write_text(content)

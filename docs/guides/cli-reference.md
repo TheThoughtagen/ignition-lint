@@ -113,7 +113,7 @@ ignition-lint --project /path/to/project --profile full --verbose
 
 ### Summary Section
 
-```
+```text
 ============================================================
 📊 LINT RESULTS
 ============================================================
@@ -126,7 +126,7 @@ ignition-lint --project /path/to/project --profile full --verbose
 
 ### Issue Details
 
-```
+```text
 ❌ [SCHEMA_VALIDATION] fontSize should be string not number
    File: path/to/view.json
    Component: ia.display.label at root.children[0]

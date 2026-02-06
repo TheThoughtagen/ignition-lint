@@ -10,8 +10,8 @@ transforms or event handler payloads.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List
 
 from ignition_lint.reporting import LintIssue, LintSeverity
 from ignition_lint.validators import JythonValidator
@@ -27,7 +27,7 @@ SEVERITY_ICONS = {
 def format_script_properly(script: str) -> str:
     """Produce a tab-indented version of the script similar to Ignition's editor."""
     lines = script.split("\n")
-    formatted_lines: List[str] = []
+    formatted_lines: list[str] = []
     current_indent = 0
 
     for line in lines:
@@ -39,12 +39,17 @@ def format_script_properly(script: str) -> str:
         if stripped.endswith(":"):
             formatted_lines.append("\t" * current_indent + stripped)
             current_indent += 1
-        elif stripped in {"else:", "except:", "finally:"} or stripped.startswith(("elif ", "except ")):
+        elif stripped in {"else:", "except:", "finally:"} or stripped.startswith(
+            ("elif ", "except ")
+        ):
             current_indent = max(0, current_indent - 1)
             formatted_lines.append("\t" * current_indent + stripped)
             if stripped.endswith(":"):
                 current_indent += 1
-        elif any(stripped.startswith(keyword) for keyword in ("return", "break", "continue", "pass")):
+        elif any(
+            stripped.startswith(keyword)
+            for keyword in ("return", "break", "continue", "pass")
+        ):
             formatted_lines.append("\t" * current_indent + stripped)
         else:
             original_indent = len(line) - len(line.lstrip("\t"))
@@ -55,16 +60,18 @@ def format_script_properly(script: str) -> str:
     return "\n".join(formatted_lines)
 
 
-def validate_jython_in_binding(binding_config: dict) -> List[LintIssue]:
+def validate_jython_in_binding(binding_config: dict) -> list[LintIssue]:
     """Validate any script transforms defined in a binding config dictionary."""
     validator = JythonValidator()
-    all_issues: List[LintIssue] = []
+    all_issues: list[LintIssue] = []
 
     for index, transform in enumerate(binding_config.get("transforms", [])):
         if transform.get("type") != "script" or "code" not in transform:
             continue
 
-        issues = validator.validate_script(transform["code"], context=f"transform[{index}]")
+        issues = validator.validate_script(
+            transform["code"], context=f"transform[{index}]"
+        )
         for issue in issues:
             issue.metadata["transformIndex"] = str(index)
         all_issues.extend(issues)
@@ -72,23 +79,27 @@ def validate_jython_in_binding(binding_config: dict) -> List[LintIssue]:
     return all_issues
 
 
-def validate_jython_in_events(events_config: dict) -> List[LintIssue]:
+def validate_jython_in_events(events_config: dict) -> list[LintIssue]:
     """Validate script handlers nested inside an events configuration dictionary."""
     validator = JythonValidator()
-    all_issues: List[LintIssue] = []
+    all_issues: list[LintIssue] = []
 
     for category, handlers in events_config.items():
         if not isinstance(handlers, dict):
             continue
 
         for name, handler_config in handlers.items():
-            handler_list: Iterable[dict] = handler_config if isinstance(handler_config, list) else [handler_config]
+            handler_list: Iterable[dict] = (
+                handler_config if isinstance(handler_config, list) else [handler_config]
+            )
             for idx, handler in enumerate(handler_list):
                 if not isinstance(handler, dict) or handler.get("type") != "script":
                     continue
 
                 script_code = handler.get("config", {}).get("script", "")
-                issues = validator.validate_script(script_code, context=f"events.{category}.{name}[{idx}]")
+                issues = validator.validate_script(
+                    script_code, context=f"events.{category}.{name}[{idx}]"
+                )
                 for issue in issues:
                     issue.metadata["eventCategory"] = category
                     issue.metadata["eventName"] = name
@@ -131,9 +142,15 @@ def _load_script(args: argparse.Namespace) -> tuple[str, str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate inline Jython scripts using the shared validator.")
-    parser.add_argument("--file", help="Path to a text file containing the script to validate")
-    parser.add_argument("--script", help="Script content to validate directly from the command line")
+    parser = argparse.ArgumentParser(
+        description="Validate inline Jython scripts using the shared validator."
+    )
+    parser.add_argument(
+        "--file", help="Path to a text file containing the script to validate"
+    )
+    parser.add_argument(
+        "--script", help="Script content to validate directly from the command line"
+    )
     args = parser.parse_args()
 
     script, context = _load_script(args)

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Set, Tuple
 
 import pathspec
 
@@ -13,10 +12,12 @@ import pathspec
 class SuppressionConfig:
     """Holds all suppression rules: CLI ignore codes + ignore-file patterns."""
 
-    ignore_codes: Set[str] = field(default_factory=set)
-    blanket_path_spec: Optional[pathspec.PathSpec] = None
-    rule_path_specs: List[Tuple[pathspec.PathSpec, Set[str]]] = field(default_factory=list)
-    project_root: Optional[Path] = None
+    ignore_codes: set[str] = field(default_factory=set)
+    blanket_path_spec: pathspec.PathSpec | None = None
+    rule_path_specs: list[tuple[pathspec.PathSpec, set[str]]] = field(
+        default_factory=list
+    )
+    project_root: Path | None = None
 
     def should_suppress(self, code: str, file_path: str) -> bool:
         """Return True if this issue should be suppressed."""
@@ -27,7 +28,9 @@ class SuppressionConfig:
             return False
 
         try:
-            rel_path = Path(file_path).resolve().relative_to(self.project_root).as_posix()
+            rel_path = (
+                Path(file_path).resolve().relative_to(self.project_root).as_posix()
+            )
         except ValueError:
             return False
 
@@ -43,7 +46,7 @@ class SuppressionConfig:
 
 def load_ignition_lintignore(
     ignore_file: Path,
-) -> Tuple[Optional[pathspec.PathSpec], List[Tuple[pathspec.PathSpec, Set[str]]]]:
+) -> tuple[pathspec.PathSpec | None, list[tuple[pathspec.PathSpec, set[str]]]]:
     """Parse an .ignition-lintignore file.
 
     Lines without a colon are blanket patterns (suppress all rules).
@@ -53,8 +56,8 @@ def load_ignition_lintignore(
     if not ignore_file.is_file():
         return None, []
 
-    blanket_lines: List[str] = []
-    rule_specs: List[Tuple[pathspec.PathSpec, Set[str]]] = []
+    blanket_lines: list[str] = []
+    rule_specs: list[tuple[pathspec.PathSpec, set[str]]] = []
 
     for raw_line in ignore_file.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
@@ -65,7 +68,9 @@ def load_ignition_lintignore(
             pattern_part, codes_part = line.rsplit(":", 1)
             codes = {c.strip() for c in codes_part.split(",") if c.strip()}
             if codes and pattern_part.strip():
-                spec = pathspec.PathSpec.from_lines("gitwildmatch", [pattern_part.strip()])
+                spec = pathspec.PathSpec.from_lines(
+                    "gitwildmatch", [pattern_part.strip()]
+                )
                 rule_specs.append((spec, codes))
             else:
                 blanket_lines.append(line)
@@ -81,17 +86,17 @@ def load_ignition_lintignore(
 
 
 def build_suppression_config(
-    ignore_codes: Optional[str] = None,
-    project_root: Optional[Path] = None,
-    ignore_file: Optional[Path] = None,
+    ignore_codes: str | None = None,
+    project_root: Path | None = None,
+    ignore_file: Path | None = None,
 ) -> SuppressionConfig:
     """Factory that combines CLI ignore codes with an ignore file."""
-    codes: Set[str] = set()
+    codes: set[str] = set()
     if ignore_codes:
         codes = {c.strip() for c in ignore_codes.split(",") if c.strip()}
 
     blanket_spec = None
-    rule_specs: List[Tuple[pathspec.PathSpec, Set[str]]] = []
+    rule_specs: list[tuple[pathspec.PathSpec, set[str]]] = []
 
     if project_root or ignore_file:
         path = ignore_file or (project_root / ".ignition-lintignore")

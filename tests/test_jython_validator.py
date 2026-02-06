@@ -1,7 +1,5 @@
-import pytest
-
-from ignition_lint.validators.jython import JythonValidator
 from ignition_lint.reporting import LintSeverity
+from ignition_lint.validators.jython import JythonValidator
 
 
 def validate(script: str):
@@ -21,7 +19,9 @@ def test_detects_syntax_error():
 
 
 def test_detects_best_practices():
-    issues = validate("\turl = 'http://localhost'\n\tresponse = system.net.httpClient().post(url)")
+    issues = validate(
+        "\turl = 'http://localhost'\n\tresponse = system.net.httpClient().post(url)"
+    )
     codes = {issue.code for issue in issues}
     assert "JYTHON_HARDCODED_LOCALHOST" in codes
     assert "JYTHON_HTTP_WITHOUT_EXCEPTION_HANDLING" in codes

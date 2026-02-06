@@ -6,14 +6,16 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Set
 
-from .json_linter import JsonLinter, ValidationError as NamingError
+from .json_linter import JsonLinter
+from .json_linter import ValidationError as NamingError
 from .perspective.linter import IgnitionPerspectiveLinter
 from .reporting import LintIssue, LintReport, LintSeverity, format_report_text
 from .schemas import SCHEMA_FILES, schema_path_for
-from .scripts.linter import IgnitionScriptLinter, LintSeverity as ScriptSeverity, ScriptLintIssue
+from .scripts.linter import IgnitionScriptLinter, ScriptLintIssue
+from .scripts.linter import LintSeverity as ScriptSeverity
 from .suppression import build_suppression_config
 
 PROFILE_CHECKS = {
@@ -63,9 +65,7 @@ def convert_script_issues(issues: Sequence[ScriptLintIssue]) -> Iterable[LintIss
 def convert_naming_errors(errors: Sequence[NamingError]) -> Iterable[LintIssue]:
     for error in errors:
         location = error.location or "props"
-        message = (
-            f"{error.error_type.title()} name '{error.name}' does not match {error.expected_style}"
-        )
+        message = f"{error.error_type.title()} name '{error.name}' does not match {error.expected_style}"
         yield LintIssue(
             severity=LintSeverity.STYLE,
             code=f"NAMING_{error.error_type.upper()}",
@@ -78,7 +78,7 @@ def convert_naming_errors(errors: Sequence[NamingError]) -> Iterable[LintIssue]:
 def lint_perspective(
     target: Path,
     schema_mode: str,
-    component_type: Optional[str],
+    component_type: str | None,
     verbose: bool,
 ) -> LintReport:
     report = LintReport()
@@ -90,9 +90,9 @@ def lint_perspective(
 
 
 def lint_perspective_files(
-    view_files: List[Path],
+    view_files: list[Path],
     schema_mode: str,
-    component_type: Optional[str],
+    component_type: str | None,
 ) -> LintReport:
     """Lint an explicit list of view.json files."""
     report = LintReport()
@@ -115,12 +115,12 @@ def lint_scripts(target: Path, verbose: bool) -> LintReport:
 def lint_target_directory(
     target: Path,
     schema_mode: str,
-    component_type: Optional[str],
-    checks: Set[str],
+    component_type: str | None,
+    checks: set[str],
     component_style: str,
     parameter_style: str,
-    component_style_rgx: Optional[str],
-    parameter_style_rgx: Optional[str],
+    component_style_rgx: str | None,
+    parameter_style_rgx: str | None,
     allow_acronyms: bool,
 ) -> LintReport:
     """Lint an arbitrary directory recursively, auto-discovering view.json and .py files."""
@@ -163,8 +163,8 @@ def lint_naming(
     patterns: Iterable[str],
     component_style: str,
     parameter_style: str,
-    component_style_rgx: Optional[str],
-    parameter_style_rgx: Optional[str],
+    component_style_rgx: str | None,
+    parameter_style_rgx: str | None,
     allow_acronyms: bool,
 ) -> LintReport:
     linter = JsonLinter(
@@ -180,7 +180,7 @@ def lint_naming(
     return report
 
 
-def determine_checks(profile: str, explicit: Optional[str], naming_only: bool) -> Set[str]:
+def determine_checks(profile: str, explicit: str | None, naming_only: bool) -> set[str]:
     if explicit:
         return {check.strip().lower() for check in explicit.split(",") if check.strip()}
     if naming_only:
@@ -190,27 +190,86 @@ def determine_checks(profile: str, explicit: Optional[str], naming_only: bool) -
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Lint Ignition projects using built-in validators", formatter_class=argparse.RawDescriptionHelpFormatter
+        description="Lint Ignition projects using built-in validators",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", "-p", help="Path to Ignition project directory (expects standard Ignition layout)")
-    parser.add_argument("--target", "-t", help="Path to any directory; recursively lints all view.json and .py files found")
-    parser.add_argument("--files", help="Comma-separated list of file patterns for naming linting")
-    parser.add_argument("--component", "-c", help="Filter Perspective linting to component type prefix")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose diagnostic output")
-    parser.add_argument("--schema-mode", choices=SCHEMA_FILES.keys(), default="robust", help="Perspective schema strictness")
-    parser.add_argument("--profile", choices=PROFILE_CHECKS.keys(), default="default", help="Preset bundle of checks")
-    parser.add_argument("--checks", help="Comma-separated list of checks to run (perspective,naming,scripts)")
-    parser.add_argument("--naming-only", action="store_true", help="Only run naming validation")
-    parser.add_argument("--component-style", default="PascalCase", help="Naming style for components")
-    parser.add_argument("--parameter-style", default="camelCase", help="Naming style for parameters")
-    parser.add_argument("--component-style-rgx", help="Custom regex for component names")
-    parser.add_argument("--parameter-style-rgx", help="Custom regex for parameter names")
-    parser.add_argument("--allow-acronyms", action="store_true", help="Allow acronyms in names")
-    parser.add_argument("--report-format", choices=["text", "json"], default="text", help="Output format")
-    parser.add_argument("--fail-on", choices=[level.value for level in LintSeverity], default=LintSeverity.ERROR.value, help="Severity threshold that causes a non-zero exit code")
-    parser.add_argument("--check-linter", action="store_true", help="Verify schema assets are available and exit")
-    parser.add_argument("--ignore-codes", help="Comma-separated rule codes to suppress globally")
-    parser.add_argument("--ignore-file", help="Path to ignore file (default: {project}/.ignition-lintignore)")
+    parser.add_argument(
+        "--project",
+        "-p",
+        help="Path to Ignition project directory (expects standard Ignition layout)",
+    )
+    parser.add_argument(
+        "--target",
+        "-t",
+        help="Path to any directory; recursively lints all view.json and .py files found",
+    )
+    parser.add_argument(
+        "--files", help="Comma-separated list of file patterns for naming linting"
+    )
+    parser.add_argument(
+        "--component", "-c", help="Filter Perspective linting to component type prefix"
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose diagnostic output"
+    )
+    parser.add_argument(
+        "--schema-mode",
+        choices=SCHEMA_FILES.keys(),
+        default="robust",
+        help="Perspective schema strictness",
+    )
+    parser.add_argument(
+        "--profile",
+        choices=PROFILE_CHECKS.keys(),
+        default="default",
+        help="Preset bundle of checks",
+    )
+    parser.add_argument(
+        "--checks",
+        help="Comma-separated list of checks to run (perspective,naming,scripts)",
+    )
+    parser.add_argument(
+        "--naming-only", action="store_true", help="Only run naming validation"
+    )
+    parser.add_argument(
+        "--component-style", default="PascalCase", help="Naming style for components"
+    )
+    parser.add_argument(
+        "--parameter-style", default="camelCase", help="Naming style for parameters"
+    )
+    parser.add_argument(
+        "--component-style-rgx", help="Custom regex for component names"
+    )
+    parser.add_argument(
+        "--parameter-style-rgx", help="Custom regex for parameter names"
+    )
+    parser.add_argument(
+        "--allow-acronyms", action="store_true", help="Allow acronyms in names"
+    )
+    parser.add_argument(
+        "--report-format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format",
+    )
+    parser.add_argument(
+        "--fail-on",
+        choices=[level.value for level in LintSeverity],
+        default=LintSeverity.ERROR.value,
+        help="Severity threshold that causes a non-zero exit code",
+    )
+    parser.add_argument(
+        "--check-linter",
+        action="store_true",
+        help="Verify schema assets are available and exit",
+    )
+    parser.add_argument(
+        "--ignore-codes", help="Comma-separated rule codes to suppress globally"
+    )
+    parser.add_argument(
+        "--ignore-file",
+        help="Path to ignore file (default: {project}/.ignition-lintignore)",
+    )
     return parser.parse_args()
 
 
@@ -232,7 +291,9 @@ def main() -> int:
     fail_threshold = LintSeverity.from_string(args.fail_on)
 
     if args.files:
-        patterns = [pattern.strip() for pattern in args.files.split(",") if pattern.strip()]
+        patterns = [
+            pattern.strip() for pattern in args.files.split(",") if pattern.strip()
+        ]
         report.merge(
             lint_naming(
                 patterns,
@@ -275,7 +336,9 @@ def main() -> int:
         checks = determine_checks(args.profile, args.checks, args.naming_only)
 
         if "perspective" in checks:
-            perspective_path = project_path / "com.inductiveautomation.perspective" / "views"
+            perspective_path = (
+                project_path / "com.inductiveautomation.perspective" / "views"
+            )
             if perspective_path.exists():
                 report.merge(
                     lint_perspective(
@@ -286,10 +349,15 @@ def main() -> int:
                     )
                 )
             else:
-                print(f"ℹ️  No Perspective views found at {perspective_path}", file=sys.stderr)
+                print(
+                    f"ℹ️  No Perspective views found at {perspective_path}",
+                    file=sys.stderr,
+                )
 
         if "naming" in checks:
-            perspective_path = project_path / "com.inductiveautomation.perspective" / "views"
+            perspective_path = (
+                project_path / "com.inductiveautomation.perspective" / "views"
+            )
             if perspective_path.exists():
                 pattern = str(perspective_path / "**/view.json")
                 report.merge(
@@ -303,14 +371,20 @@ def main() -> int:
                     )
                 )
             else:
-                print("ℹ️  Skipping naming checks (no Perspective views found)", file=sys.stderr)
+                print(
+                    "ℹ️  Skipping naming checks (no Perspective views found)",
+                    file=sys.stderr,
+                )
 
         if "scripts" in checks:
             scripts_path = project_path / "ignition" / "script-python"
             if scripts_path.exists():
                 report.merge(lint_scripts(scripts_path, args.verbose))
             else:
-                print(f"ℹ️  No script-python directory found at {scripts_path}", file=sys.stderr)
+                print(
+                    f"ℹ️  No script-python directory found at {scripts_path}",
+                    file=sys.stderr,
+                )
     else:
         print("❌ One of --project, --target, or --files is required", file=sys.stderr)
         return 1
