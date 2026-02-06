@@ -6,6 +6,7 @@ Analyze multiple Ignition codebases to refine schema based on broader empirical 
 import json
 import os
 from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from typing import Any
 
 from jsonschema import ValidationError, validate
@@ -203,7 +204,8 @@ def compare_codebases(results: list[dict[str, Any]]) -> dict[str, Any]:
     print("📊 Aggregate Statistics:")
     print(f"   Total view files: {total_files}")
     print(f"   Total components: {total_components}")
-    print(f"   Overall success rate: {(total_valid / total_components * 100):.1f}%")
+    success_rate = (total_valid / total_components * 100) if total_components else 0.0
+    print(f"   Overall success rate: {success_rate:.1f}%")
 
     # Component type coverage
     all_component_types = set()
@@ -358,7 +360,9 @@ def main():
 
     # Save comprehensive results
     analysis_results = {
-        "analysis_date": "2025-09-17",
+        "analysis_date": datetime.now(timezone.utc)
+        .date()
+        .isoformat(),  # generated at runtime
         "schema_version": "robust",
         "codebases_analyzed": list(CODEBASES.keys()),
         "individual_results": results,

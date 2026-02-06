@@ -27,26 +27,32 @@ class IgnitionLSPServer:
                 f.write(content)
                 temp_path = f.name
 
-            results = self.linter.lint_file(temp_path)
+            severity_map = {
+                "error": 1,  # LSP Error
+                "warning": 2,  # LSP Warning
+                "info": 3,  # LSP Information
+                "style": 4,  # LSP Hint
+            }
+
+            # lint_file returns bool; issues accumulate in self.linter.issues
+            self.linter.issues.clear()
+            success = self.linter.lint_file(temp_path)
             diagnostics = []
 
-            for issue in results.get("issues", {}).get(temp_path, []):
-                severity_map = {
-                    "error": 1,  # LSP Error
-                    "warning": 2,  # LSP Warning
-                    "info": 3,  # LSP Information
-                    "style": 4,  # LSP Hint
-                }
+            if not success:
+                return diagnostics
 
+            for issue in self.linter.issues:
+                line = issue.line_number if issue.line_number is not None else 0
                 diagnostic = {
                     "range": {
-                        "start": {"line": issue.get("line", 0), "character": 0},
-                        "end": {"line": issue.get("line", 0), "character": 100},
+                        "start": {"line": line, "character": 0},
+                        "end": {"line": line, "character": 100},
                     },
-                    "severity": severity_map.get(issue["severity"], 2),
-                    "message": issue["message"],
+                    "severity": severity_map.get(issue.severity.value, 2),
+                    "message": issue.message,
                     "source": "ignition-perspective-linter",
-                    "code": issue.get("rule", "unknown"),
+                    "code": issue.code or "unknown",
                 }
                 diagnostics.append(diagnostic)
 
@@ -76,6 +82,7 @@ def main():
     server = IgnitionLSPServer()
 
     for line in sys.stdin:
+        request = None
         try:
             request = json.loads(line.strip())
 
@@ -92,7 +99,7 @@ def main():
 
         except Exception as e:
             error_response = {
-                "id": request.get("id", None),
+                "id": (request or {}).get("id"),
                 "error": {"code": -1, "message": str(e)},
             }
             print(json.dumps(error_response))

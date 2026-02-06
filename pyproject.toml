@@ -67,6 +67,7 @@ target-version = ['py310']
 [tool.ruff]
 target-version = "py310"
 line-length = 88
+exclude = ["src/ignition_lint/_version.py"]
 
 [tool.ruff.lint]
 select = [
