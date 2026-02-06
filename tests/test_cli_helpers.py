@@ -2,7 +2,11 @@ from ignition_lint.cli import determine_checks
 
 
 def test_determine_checks_profile_defaults():
-    assert determine_checks("default", None, False) == {"perspective", "naming", "scripts"}
+    assert determine_checks("default", None, False) == {
+        "perspective",
+        "naming",
+        "scripts",
+    }
 
 
 def test_determine_checks_naming_only():
@@ -10,4 +14,7 @@ def test_determine_checks_naming_only():
 
 
 def test_determine_checks_explicit():
-    assert determine_checks("default", "perspective,scripts", False) == {"perspective", "scripts"}
+    assert determine_checks("default", "perspective,scripts", False) == {
+        "perspective",
+        "scripts",
+    }

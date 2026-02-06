@@ -18,7 +18,7 @@ uv run pytest
 
 ```bash
 # Start/run the project
-uv run python -m ignition-lint
+uv run ignition-lint
 ```
 
 ## Notes

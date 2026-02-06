@@ -1,8 +1,8 @@
 """Tests for the ExpressionValidator."""
+
 import pytest
 
 from ignition_lint.validators.expression import ExpressionValidator
-from ignition_lint.reporting import LintSeverity
 
 
 @pytest.fixture
@@ -82,7 +82,10 @@ class TestFunctionNames:
     def test_known_function_ok(self, validator):
         issues = validator.validate_expression(
             "toStr(42) + dateFormat(now(5000), 'HH:mm')",
-            "test", "file.json", "root", "ia.display.label",
+            "test",
+            "file.json",
+            "root",
+            "ia.display.label",
         )
         assert "EXPR_UNKNOWN_FUNCTION" not in _codes(issues)
 

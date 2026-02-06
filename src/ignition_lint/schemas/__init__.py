@@ -1,4 +1,5 @@
 """Canonical schema path resolution for ignition-lint."""
+
 from __future__ import annotations
 
 from pathlib import Path

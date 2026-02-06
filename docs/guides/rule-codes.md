@@ -124,7 +124,7 @@ scripts/legacy/**:MISSING_DOCSTRING
 # ignition-lint: disable-file=MISSING_DOCSTRING
 # ignition-lint: disable-next=LONG_LINE
 x = build_very_long_configuration_string(a, b, c, d)
-y = 1  # ignition-lint: disable=JYTHON_PRINT_STATEMENT
+print x  # ignition-lint: disable=JYTHON_PRINT_STATEMENT
 ```
 
 See the [Suppression Guide](./suppression.md) for the full reference.

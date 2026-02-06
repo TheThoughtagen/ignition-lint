@@ -8,7 +8,6 @@ to showcase the linting capabilities.
 import json
 import tempfile
 from pathlib import Path
-from typing import Dict, List
 
 
 class LintingScenarios:
@@ -17,7 +16,7 @@ class LintingScenarios:
     def __init__(self):
         self.project_root = Path(__file__).parent
 
-    def get_perspective_component_scenarios(self) -> List[Dict]:
+    def get_perspective_component_scenarios(self) -> list[dict]:
         """Get Perspective component test scenarios."""
         return [
             {
@@ -99,7 +98,7 @@ class LintingScenarios:
             },
         ]
 
-    def get_jython_script_scenarios(self) -> List[Dict]:
+    def get_jython_script_scenarios(self) -> list[dict]:
         """Get Jython script test scenarios."""
         return [
             {
@@ -184,7 +183,7 @@ except Exception as e:
             },
         ]
 
-    def create_test_view_file(self, component: Dict, filename: str = None) -> Path:
+    def create_test_view_file(self, component: dict, filename: str = None) -> Path:
         """Create a temporary view file for testing."""
         if filename is None:
             temp_file = tempfile.NamedTemporaryFile(

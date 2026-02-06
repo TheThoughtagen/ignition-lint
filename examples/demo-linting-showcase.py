@@ -13,10 +13,8 @@ This demo showcases:
 import json
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
 
 
 # Colors for terminal output
@@ -34,15 +32,15 @@ class Colors:
 
 def print_header(text: str):
     """Print a formatted header."""
-    print(f"\n{Colors.HEADER}{Colors.BOLD}{'='*60}{Colors.ENDC}")
+    print(f"\n{Colors.HEADER}{Colors.BOLD}{'=' * 60}{Colors.ENDC}")
     print(f"{Colors.HEADER}{Colors.BOLD}{text.center(60)}{Colors.ENDC}")
-    print(f"{Colors.HEADER}{Colors.BOLD}{'='*60}{Colors.ENDC}\n")
+    print(f"{Colors.HEADER}{Colors.BOLD}{'=' * 60}{Colors.ENDC}\n")
 
 
 def print_section(text: str):
     """Print a formatted section header."""
     print(f"\n{Colors.OKBLUE}{Colors.BOLD}{text}{Colors.ENDC}")
-    print(f"{Colors.OKBLUE}{'-'*len(text)}{Colors.ENDC}")
+    print(f"{Colors.OKBLUE}{'-' * len(text)}{Colors.ENDC}")
 
 
 def print_success(text: str):

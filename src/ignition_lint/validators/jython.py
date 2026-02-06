@@ -1,13 +1,58 @@
 """Validation helpers for inline Jython/Python scripts in Ignition."""
+
 from __future__ import annotations
 
 import ast
 import re
 import textwrap
 from dataclasses import dataclass
-from typing import List, Optional
 
 from ..reporting import LintIssue, LintSeverity
+
+
+def _preprocess_py2(source: str) -> str:
+    """Transform common Python 2 constructs to Python 3 so ast.parse() succeeds.
+
+    Jython in Ignition uses Python 2 syntax.  This avoids spurious
+    JYTHON_SYNTAX_ERROR reports for valid Jython code while still letting
+    ast.parse() catch genuine errors.
+    """
+    # print >>stream, args  →  print(args, file=stream)
+    source = re.sub(
+        r"^(\s*)print[ \t]*>>[ \t]*(\S+)[ \t]*,[ \t]*(.+)$",
+        r"\1print(\3, file=\2)",
+        source,
+        flags=re.MULTILINE,
+    )
+    # print >>stream  (no args)  →  print(file=stream)
+    source = re.sub(
+        r"^(\s*)print[ \t]*>>[ \t]*(\S+)[ \t]*$",
+        r"\1print(file=\2)",
+        source,
+        flags=re.MULTILINE,
+    )
+    # print args  →  print(args)  (skip lines already handled: function calls and >> redirects)
+    source = re.sub(
+        r"^(\s*)print\b[ \t]+(?!>>)(?!\()(.+)$",
+        r"\1print(\2)",
+        source,
+        flags=re.MULTILINE,
+    )
+    # except Type, var:  →  except Type as var:
+    source = re.sub(
+        r"^(\s*except[ \t]+[\w.]+)[ \t]*,[ \t]*(\w+)[ \t]*:",
+        r"\1 as \2:",
+        source,
+        flags=re.MULTILINE,
+    )
+    # raise Type, value  →  raise Type(value)
+    source = re.sub(
+        r"^(\s*raise[ \t]+[\w.]+)[ \t]*,[ \t]*(.+)$",
+        r"\1(\2)",
+        source,
+        flags=re.MULTILINE,
+    )
+    return source
 
 
 @dataclass
@@ -17,17 +62,19 @@ class JythonIssue:
     severity: LintSeverity
     code: str
     message: str
-    suggestion: Optional[str] = None
-    line_number: Optional[int] = None
+    suggestion: str | None = None
+    line_number: int | None = None
 
 
 class JythonValidator:
     """Validates inline Jython scripts from Ignition projects."""
 
     def __init__(self) -> None:
-        self.issues: List[JythonIssue] = []
+        self.issues: list[JythonIssue] = []
 
-    def validate_script(self, script_content: str, context: str = "script") -> List[LintIssue]:
+    def validate_script(
+        self, script_content: str, context: str = "script"
+    ) -> list[LintIssue]:
         """Validate a script and return normalized lint issues."""
         self.issues = []
 
@@ -38,7 +85,7 @@ class JythonValidator:
         self._check_syntax(script_content, context)
         self._check_ignition_patterns(script_content, context)
 
-        lint_issues: List[LintIssue] = []
+        lint_issues: list[LintIssue] = []
         for issue in self.issues:
             lint_issues.append(
                 LintIssue(
@@ -136,8 +183,10 @@ class JythonValidator:
     def _check_syntax(self, script: str, context: str) -> None:
         # Ignition stores inline scripts with leading indentation; dedent before parsing
         dedented = textwrap.dedent(script)
+        # Transform Python 2 constructs so the Python 3 parser doesn't reject them
+        transformed = _preprocess_py2(dedented)
         try:
-            ast.parse(dedented)
+            ast.parse(transformed)
         except SyntaxError as exc:
             self.issues.append(
                 JythonIssue(
@@ -181,7 +230,7 @@ class JythonValidator:
             )
 
         # Suggest system.perspective.print() over bare print() in Perspective scripts
-        if re.search(r"\bprint\s*\(", script) and "system.perspective.print" not in script:
+        if re.search(r"(?<![.\w])print\s*\(", script):
             self.issues.append(
                 JythonIssue(
                     severity=LintSeverity.INFO,

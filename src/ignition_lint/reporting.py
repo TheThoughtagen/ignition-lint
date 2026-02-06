@@ -1,9 +1,11 @@
 """Common reporting utilities for Ignition linting."""
+
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .suppression import SuppressionConfig
@@ -18,19 +20,19 @@ class LintSeverity(str, Enum):
     STYLE = "style"
 
     @classmethod
-    def ordered_levels(cls) -> List["LintSeverity"]:
+    def ordered_levels(cls) -> list[LintSeverity]:
         """Severity levels from most to least critical."""
         return [cls.ERROR, cls.WARNING, cls.INFO, cls.STYLE]
 
     @classmethod
-    def from_string(cls, value: str) -> "LintSeverity":
+    def from_string(cls, value: str) -> LintSeverity:
         normalized = value.strip().lower()
         for level in cls:
             if level.value == normalized:
                 return level
         raise ValueError(f"Unknown severity level: {value}")
 
-    def fails_threshold(self, threshold: "LintSeverity") -> bool:
+    def fails_threshold(self, threshold: LintSeverity) -> bool:
         """Return True if this severity should fail given threshold."""
         order = self.ordered_levels()
         return order.index(self) <= order.index(threshold)
@@ -44,29 +46,33 @@ class LintIssue:
     code: str
     message: str
     file_path: str
-    component_path: Optional[str] = None
-    component_type: Optional[str] = None
-    line_number: Optional[int] = None
-    column: Optional[int] = None
-    suggestion: Optional[str] = None
-    metadata: Dict[str, str] = field(default_factory=dict)
+    component_path: str | None = None
+    component_type: str | None = None
+    line_number: int | None = None
+    column: int | None = None
+    suggestion: str | None = None
+    metadata: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
 class LintReport:
     """Aggregate linting results used across modules."""
 
-    issues: List[LintIssue] = field(default_factory=list)
-    summary: Dict[str, int] = field(default_factory=dict)
-    suppression: Optional["SuppressionConfig"] = None
+    issues: list[LintIssue] = field(default_factory=list)
+    summary: dict[str, int] = field(default_factory=dict)
+    suppression: SuppressionConfig | None = None
     suppressed_count: int = 0
 
     def add_issue(self, issue: LintIssue) -> None:
-        if self.suppression and self.suppression.should_suppress(issue.code, issue.file_path):
+        if self.suppression and self.suppression.should_suppress(
+            issue.code, issue.file_path
+        ):
             self.suppressed_count += 1
             return
         self.issues.append(issue)
-        self.summary[issue.severity.value] = self.summary.get(issue.severity.value, 0) + 1
+        self.summary[issue.severity.value] = (
+            self.summary.get(issue.severity.value, 0) + 1
+        )
 
     def extend(self, issues: Iterable[LintIssue]) -> None:
         for issue in issues:
@@ -75,13 +81,13 @@ class LintReport:
     def has_failures(self, threshold: LintSeverity) -> bool:
         return any(issue.severity.fails_threshold(threshold) for issue in self.issues)
 
-    def merge(self, other: "LintReport") -> None:
+    def merge(self, other: LintReport) -> None:
         self.extend(other.issues)
 
 
 def format_report_text(report: LintReport) -> str:
     """Pretty-print a lint report."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("=" * 60)
     lines.append("📊 LINT RESULTS")
     lines.append("=" * 60)

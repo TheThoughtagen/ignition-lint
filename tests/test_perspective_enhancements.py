@@ -1,9 +1,8 @@
 """Tests for Perspective linter enhancements (onChange, unused props, expressions)."""
+
 import json
 import os
 import tempfile
-
-import pytest
 
 from ignition_lint.perspective.linter import IgnitionPerspectiveLinter
 
@@ -58,11 +57,7 @@ class TestOnChangeValidation:
                 "meta": {"name": "Root"},
                 "children": [],
                 "propConfig": {
-                    "props.text": {
-                        "onChange": {
-                            "script": "\tif value >\n\t\tpass"
-                        }
-                    }
+                    "props.text": {"onChange": {"script": "\tif value >\n\t\tpass"}}
                 },
             },
         }
@@ -73,11 +68,7 @@ class TestOnChangeValidation:
         view = {
             "custom": {},
             "propConfig": {
-                "custom.myProp": {
-                    "onChange": {
-                        "script": "\tif value >\n\t\tpass"
-                    }
-                }
+                "custom.myProp": {"onChange": {"script": "\tif value >\n\t\tpass"}}
             },
             "root": {
                 "type": "ia.container.flex",
@@ -119,9 +110,7 @@ class TestUnusedProperties:
                             "props.text": {
                                 "binding": {
                                     "type": "expr",
-                                    "config": {
-                                        "expression": "{view.custom.myProp}"
-                                    },
+                                    "config": {"expression": "{view.custom.myProp}"},
                                 }
                             }
                         },
@@ -167,6 +156,7 @@ class TestUnusedProperties:
         assert "UNUSED_PARAM_PROPERTY" in _codes(issues)
         param_issues = [i for i in issues if i.code == "UNUSED_PARAM_PROPERTY"]
         from ignition_lint.reporting import LintSeverity
+
         assert all(i.severity == LintSeverity.INFO for i in param_issues)
 
 

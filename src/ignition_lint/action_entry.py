@@ -60,7 +60,9 @@ def main() -> None:
             checks = {"perspective", "naming", "scripts"}
 
         if "perspective" in checks:
-            perspective_path = project_path / "com.inductiveautomation.perspective" / "views"
+            perspective_path = (
+                project_path / "com.inductiveautomation.perspective" / "views"
+            )
             if perspective_path.exists():
                 report.merge(
                     lint_perspective(
@@ -74,7 +76,9 @@ def main() -> None:
                 print(f"ℹ️  No Perspective views found at {perspective_path}")
 
         if "naming" in checks:
-            perspective_path = project_path / "com.inductiveautomation.perspective" / "views"
+            perspective_path = (
+                project_path / "com.inductiveautomation.perspective" / "views"
+            )
             if perspective_path.exists():
                 report.merge(
                     lint_naming(

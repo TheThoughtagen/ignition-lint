@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ignition-lint:*)",
+      "Bash(uv run python:*)",
+      "Bash(git rm:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh api:*)",
+      "WebSearch"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

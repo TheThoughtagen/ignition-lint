@@ -86,7 +86,7 @@ export default function Home(): React.JSX.Element {
           <code>
             <span className="comment"># install</span>
             {'\n'}
-            <span className="prompt">$</span> pip install ignition-lint
+            <span className="prompt">$</span> pip install ignition-lint-toolkit
             {'\n\n'}
             <span className="comment"># lint a project</span>
             {'\n'}

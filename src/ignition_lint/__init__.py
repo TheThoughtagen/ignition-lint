@@ -11,9 +11,9 @@ except ModuleNotFoundError:  # editable install without build
     __version__ = "0.0.0.dev0"
 
 __author__ = "Whiskey House Engineering & Technology"
-__email__ = "pmannionwhiskeyhouse.com"
+__email__ = "pmannion@whiskeyhouse.com"
 
-from .style_checker import StyleChecker
 from .json_linter import JsonLinter
+from .style_checker import StyleChecker
 
 __all__ = ["StyleChecker", "JsonLinter"]

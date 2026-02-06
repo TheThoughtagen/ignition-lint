@@ -31,7 +31,7 @@ pre-commit install
 |---|---|
 | **id** | `ignition-perspective-lint` |
 | **name** | Ignition Perspective Linter |
-| **entry** | `./ignition-lint` |
+| **entry** | `ignition-lint` |
 | **language** | `python` |
 | **files** | `\.json$` |
 | **args** | `['--format=text', '--severity=warning', '--exit-code']` |
