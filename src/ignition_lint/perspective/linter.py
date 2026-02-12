@@ -64,6 +64,10 @@ class IgnitionPerspectiveLinter:
         self.jython_validator = JythonValidator()
         self.expression_validator = ExpressionValidator()
 
+        # Known prop names derived from the component schema.
+        # The schema's props.properties keys are the source of truth.
+        self.known_prop_names = self._extract_known_props()
+
         # Known best practices patterns
         self.best_practices = {
             "preferred_containers": ["ia.container.flex"],
@@ -87,6 +91,31 @@ class IgnitionPerspectiveLinter:
         except json.JSONDecodeError as e:
             print(f"ERROR: Invalid JSON in schema file: {e}", file=sys.stderr)
             sys.exit(1)
+
+    def _extract_known_props(self) -> frozenset:
+        """Extract known property names from the loaded component schema.
+
+        Uses the schema's props.properties keys as the source of truth for
+        which property names are recognised.  Falls back to a minimal set
+        if the schema could not be parsed.
+        """
+        props: set[str] = set()
+        try:
+            schema_props = (
+                self.schema
+                .get("properties", {})
+                .get("props", {})
+                .get("properties", {})
+            )
+            props.update(schema_props.keys())
+        except (AttributeError, TypeError):
+            pass
+
+        if not props:
+            # Minimal fallback when schema is unavailable
+            props = {"style", "text", "value", "enabled", "visible"}
+
+        return frozenset(props)
 
     def find_view_files(self, target_path: str) -> list[str]:
         """Find all view.json files in the target directory."""
@@ -160,6 +189,24 @@ class IgnitionPerspectiveLinter:
             validate(instance=component, schema=self.schema)
             return True
         except ValidationError as e:
+            # Build search_key from the failing property path for line resolution
+            metadata: dict[str, str] = {}
+            if e.absolute_path:
+                # Use the deepest property name as search key (e.g. "direction")
+                path_parts = list(e.absolute_path)
+                # Find the last string key (skip integer indices from arrays)
+                search_prop = None
+                for part in reversed(path_parts):
+                    if isinstance(part, str):
+                        search_prop = part
+                        break
+                if search_prop:
+                    metadata["search_key"] = f'"{search_prop}"'
+
+            comp_name = component.get("meta", {}).get("name", "")
+            if comp_name:
+                metadata["component_name"] = comp_name
+
             self.issues.append(
                 LintIssue(
                     severity=LintSeverity.ERROR,
@@ -171,6 +218,7 @@ class IgnitionPerspectiveLinter:
                     suggestion=f"Path: {'.'.join(map(str, e.absolute_path))}"
                     if e.absolute_path
                     else None,
+                    metadata=metadata,
                 )
             )
             return False
@@ -237,20 +285,24 @@ class IgnitionPerspectiveLinter:
                 )
             )
 
-        # Check for missing position properties in containers
-        if comp_type.startswith("ia.container.") and "children" in component:
+        # Check for missing position properties in coordinate containers
+        # Only ia.container.coord requires explicit position on children;
+        # flex containers use layout defaults (basis/grow/shrink are optional).
+        if comp_type == "ia.container.coord" and "children" in component:
             children = component.get("children", [])
             for i, child in enumerate(children):
                 if "position" not in child:
+                    child_name = child.get("meta", {}).get("name", f"child[{i}]")
                     self.issues.append(
                         LintIssue(
                             severity=LintSeverity.WARNING,
                             code="MISSING_CHILD_POSITION",
-                            message=f"Child component at index {i} missing position properties",
+                            message=f"Child '{child_name}' at index {i} missing position properties",
                             file_path=file_path,
                             component_path=f"{component_path}.children[{i}]",
                             component_type=child.get("type", "unknown"),
-                            suggestion="Add position properties for proper layout",
+                            suggestion="Add position properties (x, y, width, height) for coordinate layout",
+                            metadata={"component_name": child_name},
                         )
                     )
 
@@ -275,6 +327,10 @@ class IgnitionPerspectiveLinter:
 
             # Check for missing direction property
             if "direction" not in props and len(children) > 1:
+                comp_name = component.get("meta", {}).get("name", "")
+                metadata = {"search_key": '"justify"' if "justify" in props else '"props"'}
+                if comp_name:
+                    metadata["component_name"] = comp_name
                 self.issues.append(
                     LintIssue(
                         severity=LintSeverity.INFO,
@@ -284,8 +340,31 @@ class IgnitionPerspectiveLinter:
                         component_path=component_path,
                         component_type=comp_type,
                         suggestion="Add 'props.direction' for explicit layout control",
+                        metadata=metadata,
                     )
                 )
+
+        # Check for unknown props
+        props = component.get("props", {})
+        if isinstance(props, dict):
+            for prop_name in props:
+                if prop_name not in self.known_prop_names:
+                    comp_name = component.get("meta", {}).get("name", "")
+                    metadata = {"search_key": f'"{prop_name}"'}
+                    if comp_name:
+                        metadata["component_name"] = comp_name
+                    self.issues.append(
+                        LintIssue(
+                            severity=LintSeverity.STYLE,
+                            code="UNKNOWN_PROP",
+                            message=f"Unknown property '{prop_name}' in component props",
+                            file_path=file_path,
+                            component_path=f"{component_path}.props.{prop_name}",
+                            component_type=comp_type,
+                            suggestion=f"Verify '{prop_name}' is a valid property for {comp_type}",
+                            metadata=metadata,
+                        )
+                    )
 
         # Validate bindings
         self._validate_bindings(component, file_path, component_path)
@@ -324,7 +403,12 @@ class IgnitionPerspectiveLinter:
         # Check for missing path in icons
         if comp_type == "ia.display.icon":
             props = component.get("props", {})
-            if "path" not in props:
+            prop_config = component.get("propConfig", {})
+
+            has_path = "path" in props
+            has_path_binding = "props.path" in prop_config
+
+            if not has_path and not has_path_binding:
                 self.issues.append(
                     LintIssue(
                         severity=LintSeverity.ERROR,
@@ -333,7 +417,7 @@ class IgnitionPerspectiveLinter:
                         file_path=file_path,
                         component_path=component_path,
                         component_type=comp_type,
-                        suggestion="Add 'props.path' with icon reference",
+                        suggestion="Add 'props.path' with icon reference or binding",
                     )
                 )
 
@@ -955,13 +1039,87 @@ class IgnitionPerspectiveLinter:
                         )
                     )
 
+    @staticmethod
+    def _build_component_line_map(raw_text: str) -> dict[str, int]:
+        """Build a mapping from component_path to 1-based line number.
+
+        Scans the raw JSON text for ``"name": "..."`` entries and maps
+        component paths (based on nesting depth) to their line numbers.
+        Falls back to ``"type": "ia.*"`` lines when names aren't available.
+        """
+        import re
+
+        line_map: dict[str, int] = {}
+        # Match "name": "value" — gives us component location
+        name_pattern = re.compile(r'"name"\s*:\s*"([^"]*)"')
+        type_pattern = re.compile(r'"type"\s*:\s*"(ia\.[^"]*)"')
+
+        for lineno, line in enumerate(raw_text.splitlines(), start=1):
+            m = name_pattern.search(line)
+            if m:
+                line_map[m.group(1)] = lineno
+            else:
+                m = type_pattern.search(line)
+                if m:
+                    # Store type-based fallback with a distinct key
+                    line_map.setdefault(f"__type__{m.group(1)}__{lineno}", lineno)
+
+        return line_map
+
+    def _enrich_issue_line_numbers(
+        self,
+        issues: list[LintIssue],
+        line_map: dict[str, int],
+        start_idx: int,
+        raw_text: str = "",
+    ) -> None:
+        """Fill in line_number for Perspective issues that lack one.
+
+        Uses the ``line_map`` built from raw JSON text to resolve component
+        names (from ``"name": "..."`` patterns) to their line numbers.
+        Falls back to searching ``raw_text`` for ``search_key`` metadata.
+        """
+        raw_lines = raw_text.splitlines() if raw_text else []
+
+        for issue in issues[start_idx:]:
+            if issue.line_number is not None:
+                continue
+
+            # Try search_key — direct text search for the specific key string
+            search_key = issue.metadata.get("search_key")
+            comp_name = issue.metadata.get("component_name")
+
+            if search_key and raw_lines:
+                # If we know the component name, start searching from its line
+                # so we don't land on a different component's matching key.
+                start_line = 0
+                if comp_name and comp_name in line_map:
+                    start_line = line_map[comp_name] - 1  # 0-indexed
+                for i, line in enumerate(raw_lines[start_line:], start_line + 1):
+                    if search_key in line:
+                        issue.line_number = i
+                        break
+                if issue.line_number is not None:
+                    continue
+            if comp_name and comp_name in line_map:
+                issue.line_number = line_map[comp_name]
+                continue
+
+            # Try resolving from component_type — find the closest match
+            if issue.component_type and issue.component_type.startswith("ia."):
+                for key, lineno in line_map.items():
+                    if key.startswith(f"__type__{issue.component_type}__"):
+                        issue.line_number = lineno
+                        break
+
     def lint_file(
         self, file_path: str, target_component_type: str | None = None
     ) -> bool:
         """Lint a single view.json file."""
         try:
             with open(file_path, encoding="utf-8") as f:
-                view_data = json.load(f)
+                raw_text = f.read()
+            view_data = json.loads(raw_text)
         except json.JSONDecodeError as e:
             self.issues.append(
                 LintIssue(
@@ -987,6 +1145,10 @@ class IgnitionPerspectiveLinter:
                 )
             )
             return False
+
+        # Build line number map from raw text for issue enrichment
+        line_map = self._build_component_line_map(raw_text)
+        issues_start = len(self.issues)
 
         # Validate view-level propConfig (onChange scripts, transform scripts, expressions)
         view_prop_config = view_data.get("propConfig", {})
@@ -1021,8 +1183,12 @@ class IgnitionPerspectiveLinter:
         file_valid = True
         for component, _, component_path in components:
             comp_type = component.get("type", "unknown")
+            comp_name = component.get("meta", {}).get("name", "")
             self.component_stats["component_types"].add(comp_type)
             self.component_stats["total_components"] += 1
+
+            # Track issue count so we can tag new issues with component name
+            pre_count = len(self.issues)
 
             # Schema validation
             is_valid = self.validate_component_schema(
@@ -1040,8 +1206,17 @@ class IgnitionPerspectiveLinter:
             # Accessibility checks
             self.check_component_accessibility(component, file_path, component_path)
 
+            # Tag new issues with component name for line number resolution
+            if comp_name:
+                for issue in self.issues[pre_count:]:
+                    if "component_name" not in issue.metadata:
+                        issue.metadata["component_name"] = comp_name
+
         # Check for unused custom/param properties (per-view)
         self._check_unused_properties(view_data, file_path)
+
+        # Enrich issues with line numbers from the raw text
+        self._enrich_issue_line_numbers(self.issues, line_map, issues_start, raw_text)
 
         return file_valid
 

@@ -354,7 +354,17 @@
           "type": "string"
         },
         "referrerPolicy": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "no-referrer",
+            "no-referrer-when-downgrade",
+            "origin",
+            "origin-when-cross-origin",
+            "same-origin",
+            "strict-origin",
+            "strict-origin-when-cross-origin",
+            "unsafe-url"
+          ]
         },
         "allowFullScreen": {
           "type": "boolean"
@@ -367,10 +377,25 @@
           ]
         },
         "justify": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "flex-start",
+            "flex-end",
+            "center",
+            "space-between",
+            "space-around",
+            "space-evenly"
+          ]
         },
         "alignItems": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "flex-start",
+            "flex-end",
+            "center",
+            "stretch",
+            "baseline"
+          ]
         },
         "wrap": {
           "type": [
@@ -385,10 +410,21 @@
           "type": "string"
         },
         "alignVertical": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "top",
+            "center",
+            "bottom"
+          ]
         },
         "alignHorizontal": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "description": "Horizontal text alignment (ia.display.label)"
         },
         "icon": {
           "type": [
@@ -464,6 +500,575 @@
         },
         "format": {
           "type": "string"
+        },
+        "fit": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "contain",
+                "cover",
+                "fill",
+                "none",
+                "scale-down",
+                "percent"
+              ]
+            }
+          },
+          "additionalProperties": true,
+          "description": "Image fit configuration (ia.display.image)"
+        },
+        "alt": {
+          "type": "string",
+          "description": "Alternative text (ia.display.image)"
+        },
+        "mode": {
+          "type": "string",
+          "description": "Component display mode"
+        },
+        "tagPath": {
+          "type": "string",
+          "description": "Tag path reference"
+        },
+        "viewPath": {
+          "type": "string",
+          "description": "Embedded view path (ia.display.view, ia.display.flex-repeater)"
+        },
+        "viewParams": {
+          "type": "object",
+          "description": "Parameters passed to embedded view"
+        },
+        "tooltip": {
+          "type": [
+            "object",
+            "string"
+          ],
+          "description": "Tooltip configuration"
+        },
+        "badge": {
+          "type": [
+            "object",
+            "number",
+            "string"
+          ],
+          "description": "Badge overlay configuration"
+        },
+        "min": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Minimum value (numeric inputs)"
+        },
+        "max": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Maximum value (numeric inputs)"
+        },
+        "step": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Step increment (numeric inputs)"
+        },
+        "readOnly": {
+          "type": "boolean",
+          "description": "Whether the input is read-only"
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "Whether the component is disabled"
+        },
+        "checked": {
+          "type": "boolean",
+          "description": "Checkbox checked state"
+        },
+        "rows": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Number of visible text rows (ia.input.text-area)"
+        },
+        "selectionMode": {
+          "type": "string",
+          "description": "Selection mode (table, tree)"
+        },
+        "header": {
+          "type": "object",
+          "description": "Table header configuration"
+        },
+        "footer": {
+          "type": "object",
+          "description": "Table footer configuration"
+        },
+        "pager": {
+          "type": "object",
+          "description": "Table pager/pagination configuration"
+        },
+        "noDataMessage": {
+          "type": "string",
+          "description": "Message shown when table has no data"
+        },
+        "target": {
+          "type": "string",
+          "description": "Navigation target"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL for iframe or link components"
+        },
+        "scrollable": {
+          "type": "boolean",
+          "description": "Whether the container is scrollable"
+        },
+        "title": {
+          "type": [
+            "string",
+            "object"
+          ],
+          "description": "Component title"
+        },
+        "variant": {
+          "type": "string",
+          "description": "Component variant (buttons)"
+        },
+        "shape": {
+          "type": "string",
+          "description": "Component shape"
+        },
+        "elevation": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Material elevation/shadow depth"
+        },
+        "rotation": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Icon rotation angle (ia.display.icon)"
+        },
+        "size": {
+          "type": [
+            "number",
+            "string",
+            "object"
+          ],
+          "description": "Component size"
+        },
+        "readyState": {
+          "type": "object",
+          "description": "Button ready state appearance (ia.input.oneshotbutton)"
+        },
+        "writingState": {
+          "type": "object",
+          "description": "Button writing state appearance (ia.input.oneshotbutton)"
+        },
+        "confirm": {
+          "type": "object",
+          "description": "Confirmation dialog configuration (ia.input.oneshotbutton)"
+        },
+        "setValue": {
+          "type": [
+            "boolean",
+            "number",
+            "string",
+            "object",
+            "null"
+          ],
+          "description": "Value to set on click (ia.input.oneshotbutton)"
+        },
+        "dropdownOptionStyle": {
+          "type": "object",
+          "description": "Style applied to dropdown options (ia.input.dropdown)"
+        },
+        "showClearIcon": {
+          "type": "boolean",
+          "description": "Show clear icon in dropdown (ia.input.dropdown)"
+        },
+        "search": {
+          "type": "object",
+          "description": "Search/filter configuration for dropdown (ia.input.dropdown)"
+        },
+        "allowCustomOptions": {
+          "type": "boolean",
+          "description": "Allow user-entered custom options (ia.input.dropdown)"
+        },
+        "multiSelect": {
+          "type": "boolean",
+          "description": "Enable multi-selection (ia.input.dropdown)"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether input is required"
+        },
+        "inputBounds": {
+          "type": "object",
+          "description": "Min/max bounds for numeric input (ia.input.numeric-entry-field)"
+        },
+        "tooltipText": {
+          "type": "string",
+          "description": "Tooltip text for numeric entry (ia.input.numeric-entry-field)"
+        },
+        "containerStyle": {
+          "type": "object",
+          "description": "Container style override (ia.input.numeric-entry-field)"
+        },
+        "spinner": {
+          "type": "object",
+          "description": "Spinner configuration (ia.input.numeric-entry-field)"
+        },
+        "formattedValue": {
+          "type": [
+            "string",
+            "object"
+          ],
+          "description": "Formatted display value (ia.input.date-time-input)"
+        },
+        "formattedValues": {
+          "type": "object",
+          "description": "Formatted values for date range (ia.input.date-time-input)"
+        },
+        "inputProps": {
+          "type": "object",
+          "description": "Additional input element properties (ia.input.date-time-input)"
+        },
+        "pickerType": {
+          "type": "string",
+          "description": "Type of date picker: date, time, datetime (ia.input.date-time-input)",
+          "enum": [
+            "date",
+            "time",
+            "datetime",
+            "daterange"
+          ]
+        },
+        "modalStyle": {
+          "type": "object",
+          "description": "Style for date picker modal (ia.input.date-time-input)"
+        },
+        "orientation": {
+          "type": "string",
+          "description": "Button orientation: horizontal, vertical (ia.input.multi-state-button)",
+          "enum": [
+            "row",
+            "column",
+            "horizontal",
+            "vertical"
+          ]
+        },
+        "states": {
+          "type": "array",
+          "description": "State definitions for multi-state button (ia.input.multi-state-button)"
+        },
+        "buttonGap": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Gap between buttons (ia.input.multi-state-button)"
+        },
+        "defaultSelectedStyle": {
+          "type": "object",
+          "description": "Default selected state style (ia.input.multi-state-button)"
+        },
+        "defaultUnselectedStyle": {
+          "type": "object",
+          "description": "Default unselected state style (ia.input.multi-state-button)"
+        },
+        "controlValue": {
+          "type": [
+            "boolean",
+            "number",
+            "string",
+            "null"
+          ],
+          "description": "Current control value (ia.input.multi-state-button)"
+        },
+        "textPosition": {
+          "type": "string",
+          "description": "Label text position relative to checkbox (ia.input.checkbox)",
+          "enum": [
+            "left",
+            "right",
+            "top",
+            "bottom"
+          ]
+        },
+        "checkedIcon": {
+          "type": "object",
+          "description": "Icon when checked (ia.input.checkbox)"
+        },
+        "indeterminateIcon": {
+          "type": "object",
+          "description": "Icon when indeterminate (ia.input.checkbox)"
+        },
+        "uncheckedIcon": {
+          "type": "object",
+          "description": "Icon when unchecked (ia.input.checkbox)"
+        },
+        "inputStyle": {
+          "type": "object",
+          "description": "Style for checkbox input element (ia.input.checkbox)"
+        },
+        "deferUpdates": {
+          "type": "boolean",
+          "description": "Defer value updates until blur/enter (ia.input.text-field, text-area)"
+        },
+        "rejectUpdatesWhileFocused": {
+          "type": "boolean",
+          "description": "Reject external updates while focused (ia.input.text-field)"
+        },
+        "resize": {
+          "type": "string",
+          "description": "Resize behavior: none, both, horizontal, vertical (ia.input.text-area)",
+          "enum": [
+            "none",
+            "both",
+            "horizontal",
+            "vertical"
+          ]
+        },
+        "spellcheck": {
+          "type": "boolean",
+          "description": "Enable browser spellcheck (ia.input.text-field)"
+        },
+        "textAlign": {
+          "type": "string",
+          "description": "Text alignment within input",
+          "enum": [
+            "left",
+            "center",
+            "right",
+            "justify"
+          ]
+        },
+        "primary": {
+          "type": "object",
+          "description": "Primary action configuration (ia.input.button)"
+        },
+        "selection": {
+          "type": "object",
+          "description": "Selection configuration (ia.display.table, tree)"
+        },
+        "cells": {
+          "type": "object",
+          "description": "Cell configuration and styling (ia.display.table)"
+        },
+        "emptyMessage": {
+          "type": "string",
+          "description": "Message when table has no data (ia.display.table)"
+        },
+        "dragOrderable": {
+          "type": "boolean",
+          "description": "Enable drag-to-reorder rows (ia.display.table)"
+        },
+        "enableFooterGroups": {
+          "type": "boolean",
+          "description": "Enable footer group rows (ia.display.table)"
+        },
+        "virtualized": {
+          "type": "boolean",
+          "description": "Enable row virtualization for performance (ia.display.table)"
+        },
+        "footerGroups": {
+          "type": "array",
+          "description": "Footer group definitions (ia.display.table)"
+        },
+        "bodyStyle": {
+          "type": "object",
+          "description": "Table body style (ia.display.table)"
+        },
+        "minRowHeight": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Minimum row height in pixels (ia.display.table)"
+        },
+        "elementPosition": {
+          "type": "object",
+          "description": "Position override for repeated elements (ia.display.flex-repeater)"
+        },
+        "elementStyle": {
+          "type": "object",
+          "description": "Style override for repeated elements (ia.display.flex-repeater)"
+        },
+        "alignContent": {
+          "type": "string",
+          "description": "Align content (flex cross-axis wrapping)",
+          "enum": [
+            "flex-start",
+            "flex-end",
+            "center",
+            "stretch",
+            "space-between",
+            "space-around",
+            "space-evenly"
+          ]
+        },
+        "breakpoint": {
+          "type": "object",
+          "description": "Breakpoint configuration (ia.container.breakpt)"
+        },
+        "aspectRatio": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Container aspect ratio (ia.container.coord)"
+        },
+        "menuType": {
+          "type": "string",
+          "description": "Tab menu style (ia.container.tab)"
+        },
+        "tabs": {
+          "type": "array",
+          "description": "Tab definitions (ia.container.tab)"
+        },
+        "contentStyle": {
+          "type": "object",
+          "description": "Tab content area style (ia.container.tab)"
+        },
+        "tabSize": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Tab header size (ia.container.tab)"
+        },
+        "tabStyle": {
+          "type": "object",
+          "description": "Tab header style (ia.container.tab)"
+        },
+        "appearance": {
+          "type": "object",
+          "description": "Tree appearance settings (ia.display.tree)"
+        },
+        "selectionData": {
+          "type": [
+            "object",
+            "array",
+            "null"
+          ],
+          "description": "Currently selected tree node data (ia.display.tree)"
+        },
+        "branchNodeSelectable": {
+          "type": "boolean",
+          "description": "Whether branch nodes are selectable (ia.display.tree)"
+        },
+        "markdown": {
+          "type": "string",
+          "description": "Markdown content string (ia.display.markdown)"
+        },
+        "sectionSpacing": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Spacing between sections (ia.display.markdown)"
+        },
+        "bar": {
+          "type": "object",
+          "description": "Progress bar configuration (ia.display.progress)"
+        },
+        "colors": {
+          "type": [
+            "array",
+            "object"
+          ],
+          "description": "Color palette for chart slices (ia.chart.pie)"
+        },
+        "labels": {
+          "type": "object",
+          "description": "Chart label configuration (ia.chart.pie)"
+        },
+        "showLegend": {
+          "type": "boolean",
+          "description": "Show chart legend"
+        },
+        "valueFormat": {
+          "type": [
+            "string",
+            "object"
+          ],
+          "description": "Value display format (ia.chart.pie)"
+        },
+        "cutoutRadius": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Donut chart cutout radius (ia.chart.pie)"
+        },
+        "showLabels": {
+          "type": "boolean",
+          "description": "Show data labels on chart"
+        },
+        "tooltipFormat": {
+          "type": [
+            "string",
+            "object"
+          ],
+          "description": "Tooltip format string (ia.chart.pie)"
+        },
+        "threeDimensional": {
+          "type": "boolean",
+          "description": "Enable 3D chart rendering (ia.chart.pie)"
+        },
+        "legend": {
+          "type": "object",
+          "description": "Legend configuration (ia.chart.pie)"
+        },
+        "itemStyle": {
+          "type": "object",
+          "description": "Menu item style (ia.navigation.*)"
+        },
+        "backActionText": {
+          "type": "string",
+          "description": "Back button text (ia.navigation.menutree)"
+        },
+        "backActionStyle": {
+          "type": "object",
+          "description": "Back button style (ia.navigation.menutree)"
+        },
+        "headerStyle": {
+          "type": "object",
+          "description": "Menu header style (ia.navigation.menutree)"
+        },
+        "filters": {
+          "type": "object",
+          "description": "Alarm filter configuration (ia.display.alarmstatustable)"
+        },
+        "responsive": {
+          "type": "object",
+          "description": "Responsive layout configuration (ia.display.alarmjournaltable)"
+        },
+        "supportedFileTypes": {
+          "type": [
+            "array",
+            "string"
+          ],
+          "description": "Accepted file MIME types (ia.input.fileupload)"
+        },
+        "fileUploadIcon": {
+          "type": "object",
+          "description": "Upload icon configuration (ia.input.fileupload)"
+        },
+        "maxUploads": {
+          "type": "number",
+          "description": "Maximum simultaneous uploads (ia.input.fileupload)"
+        },
+        "actionBar": {
+          "type": "object",
+          "description": "Action bar configuration (ia.input.signature-pad)"
         }
       },
       "additionalProperties": true,
@@ -502,7 +1107,7 @@
                         "type": "string",
                         "enum": [
                           "map",
-                          "script", 
+                          "script",
                           "expression",
                           "format"
                         ],
@@ -516,7 +1121,7 @@
                         "description": "Jython code for script transforms"
                       },
                       "expression": {
-                        "type": "string", 
+                        "type": "string",
                         "description": "Expression for expression transforms"
                       },
                       "mappings": {
@@ -525,11 +1130,22 @@
                       },
                       "inputType": {
                         "type": "string",
-                        "enum": ["scalar", "array", "dataset", "range"]
+                        "enum": [
+                          "scalar",
+                          "array",
+                          "dataset",
+                          "range"
+                        ]
                       },
                       "outputType": {
                         "type": "string",
-                        "enum": ["scalar", "color", "object", "expression", "style-list"]
+                        "enum": [
+                          "scalar",
+                          "color",
+                          "object",
+                          "expression",
+                          "style-list"
+                        ]
                       },
                       "fallback": {
                         "description": "Fallback value for map transforms"
