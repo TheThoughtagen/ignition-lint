@@ -170,7 +170,22 @@ class IgnitionTagLinter:
     def _validate_tag_node(self, node: dict, file_path: str, tag_path: str) -> bool:
         """Validate a single tag node and recurse into children."""
         if not isinstance(node, dict):
-            return True
+            # Report error for malformed tag entries
+            node_type = type(node).__name__
+            node_repr = repr(node) if len(repr(node)) < 50 else repr(node)[:47] + "..."
+            self.issues.append(
+                LintIssue(
+                    severity=LintSeverity.ERROR,
+                    code="INVALID_TAG_NODE",
+                    message=f"Tag node must be a dict/object, got {node_type}: {node_repr}",
+                    file_path=file_path,
+                    component_path=tag_path or "root",
+                    component_type="invalid",
+                    suggestion="Each tag must be a JSON object with 'name', 'tagType', etc.",
+                )
+            )
+            self.tag_stats["invalid_tags"] += 1
+            return False
 
         tag_name = node.get("name", "")
         current_path = f"{tag_path}/{tag_name}" if tag_path else tag_name
@@ -198,13 +213,11 @@ class IgnitionTagLinter:
         tags = node.get("tags")
         node_valid = schema_valid
         if isinstance(tags, list):
-            for child in tags:
-                if isinstance(child, dict):
-                    child_valid = self._validate_tag_node(
-                        child, file_path, current_path
-                    )
-                    if not child_valid:
-                        node_valid = False
+            for i, child in enumerate(tags):
+                child_path = f"{current_path}/tags[{i}]"
+                child_valid = self._validate_tag_node(child, file_path, child_path)
+                if not child_valid:
+                    node_valid = False
 
         return node_valid
 

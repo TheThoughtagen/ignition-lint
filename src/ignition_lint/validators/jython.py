@@ -388,6 +388,17 @@ class JythonValidator:
                             line_number=line_num,
                         )
                     )
+                elif self._looks_like_java_package(pkg):
+                    # Looks like a Java package but not in known set
+                    self.issues.append(
+                        JythonIssue(
+                            severity=LintSeverity.INFO,
+                            code="JYTHON_UNKNOWN_JAVA_PACKAGE",
+                            message=f"Unknown Java package '{pkg}' — may be valid but is not recognized",
+                            suggestion="Verify the package name is correct",
+                            line_number=line_num,
+                        )
+                    )
                 continue
 
             # Check from ... import ... style
