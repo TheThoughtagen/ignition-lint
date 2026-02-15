@@ -4,10 +4,9 @@ on:
   push:
     tags:
       - "v*.*.*"  # Matches v1.2.3, v10.20.30, etc.
-    tags-ignore:
-      - "v*-beta*"
-      - "v*-rc*"
-      - "v*-alpha*"
+      - "!v*-beta*"
+      - "!v*-rc*"
+      - "!v*-alpha*"
 
 permissions:
   contents: write
