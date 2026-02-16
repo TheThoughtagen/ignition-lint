@@ -61,7 +61,7 @@ outputs:
     description: 'Linting result (success or failure)'
 
 branding:
-  icon: 'zap'
+  icon: 'check-circle'
   color: 'orange'
 
 runs:
