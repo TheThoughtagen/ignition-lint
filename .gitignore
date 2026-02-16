@@ -248,6 +248,11 @@ debug_*.py
 test_*.py
 temp_*.py
 
+# Local action test scripts
+test_action_direct.py
+test_action_simple.sh
+test-action-local.sh
+
 # === Logs ===
 *.log
 logs/

@@ -1,0 +1,201 @@
+name: Test GitHub Action
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  test-action-files:
+    name: Test Action with Files Input
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test with files glob pattern
+        id: test-files
+        uses: ./  # Use local action
+        with:
+          files: "examples/**/*.json"
+          component_style: "PascalCase"
+          parameter_style: "camelCase"
+          allow_acronyms: "false"
+          fail_on: "error"  # Only fail on errors, not warnings
+
+      - name: Check result output
+        run: |
+          echo "Action result: ${{ steps.test-files.outputs.result }}"
+
+  test-action-project:
+    name: Test Action with Project Path
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test Ignition project structure
+        run: |
+          mkdir -p test-project/com.inductiveautomation.perspective/views/TestView
+          cp examples/good_view.json test-project/com.inductiveautomation.perspective/views/TestView/view.json
+
+          mkdir -p test-project/ignition/script-python/shared
+          cat > test-project/ignition/script-python/shared/test.py << 'EOF'
+          """Test module for action testing."""
+
+          def hello_world():
+              """Say hello to the world."""
+              return "Hello, World!"
+          EOF
+
+      - name: Test with project path (perspective only)
+        id: test-project-perspective
+        uses: ./
+        with:
+          project_path: "test-project"
+          lint_type: "perspective"
+          naming_only: "false"
+          schema_mode: "robust"
+          fail_on: "error"
+
+      - name: Check perspective result
+        run: |
+          echo "Perspective lint result: ${{ steps.test-project-perspective.outputs.result }}"
+
+  test-action-all-checks:
+    name: Test Action with All Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create comprehensive test project
+        run: |
+          # Create Perspective views
+          mkdir -p test-project/com.inductiveautomation.perspective/views/Dashboard
+          cp examples/good_view.json test-project/com.inductiveautomation.perspective/views/Dashboard/view.json
+
+          # Create another view with issues
+          mkdir -p test-project/com.inductiveautomation.perspective/views/BadView
+          cp examples/test_view_with_bad_jython.json test-project/com.inductiveautomation.perspective/views/BadView/view.json || true
+
+          # Create Python scripts
+          mkdir -p test-project/ignition/script-python/shared
+          cat > test-project/ignition/script-python/shared/utils.py << 'EOF'
+          """Utility functions for testing."""
+
+          def calculate_sum(a, b):
+              """Calculate the sum of two numbers."""
+              return a + b
+
+          def process_data(data):
+              """Process data with proper error handling."""
+              if not data:
+                  raise ValueError("Data cannot be empty")
+              return [x * 2 for x in data]
+          EOF
+
+      - name: Test with all checks enabled
+        id: test-all
+        uses: ./
+        with:
+          project_path: "test-project"
+          lint_type: "all"
+          naming_only: "false"
+          fail_on: "error"
+          ignore_codes: "NAMING_PARAMETER"  # Suppress during testing
+        continue-on-error: true  # Don't fail the workflow if linting finds issues
+
+      - name: Report all checks result
+        run: |
+          echo "All checks result: ${{ steps.test-all.outputs.result }}"
+          if [ "${{ steps.test-all.outputs.result }}" = "failure" ]; then
+            echo "⚠️  Linting found issues (expected for test)"
+          else
+            echo "✅ Linting passed"
+          fi
+
+  test-action-suppression:
+    name: Test Action with Suppression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test project with issues
+        run: |
+          mkdir -p test-project/com.inductiveautomation.perspective/views/TestView
+          cat > test-project/com.inductiveautomation.perspective/views/TestView/view.json << 'EOF'
+          {
+            "custom": {},
+            "params": {
+              "bad_name": {
+                "value": "test"
+              }
+            },
+            "props": {
+              "type": "ia.display.label"
+            },
+            "type": "View"
+          }
+          EOF
+
+          # Create .ignition-lintignore
+          cat > test-project/.ignition-lintignore << 'EOF'
+          # Suppress naming violations in test files
+          **/TestView/** NAMING_PARAMETER
+          EOF
+
+      - name: Test with suppression file
+        id: test-suppression
+        uses: ./
+        with:
+          project_path: "test-project"
+          lint_type: "perspective"
+          naming_only: "true"
+          fail_on: "warning"
+
+      - name: Check suppression worked
+        run: |
+          echo "Suppression test result: ${{ steps.test-suppression.outputs.result }}"
+
+  test-action-component-filter:
+    name: Test Action with Component Filter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test with component filter
+        id: test-component
+        uses: ./
+        with:
+          files: "examples/good_view.json"
+          component: "ia.display.label"
+          fail_on: "error"
+
+      - name: Check component filter result
+        run: |
+          echo "Component filter result: ${{ steps.test-component.outputs.result }}"
+
+  test-action-version:
+    name: Test Action with Specific Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test with specific version (will use PyPI)
+        id: test-version
+        uses: ./
+        with:
+          version: "1.0.0"  # This will try to install from PyPI
+          files: "examples/good_view.json"
+          fail_on: "error"
+        continue-on-error: true  # May fail if version not on PyPI yet
+
+      - name: Check version test result
+        run: |
+          echo "Version test result: ${{ steps.test-version.outputs.result }}"

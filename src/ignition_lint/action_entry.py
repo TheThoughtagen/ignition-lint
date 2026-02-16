@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import sys
+from glob import glob
 from pathlib import Path
 
 from .cli import (
@@ -102,16 +103,45 @@ def main() -> None:
 
     elif files:
         patterns = [pattern.strip() for pattern in files.split(",") if pattern.strip()]
-        report.merge(
-            lint_naming(
-                patterns,
-                component_style,
-                parameter_style,
-                component_style_rgx,
-                parameter_style_rgx,
-                allow_acronyms,
+
+        # Expand glob patterns to actual files
+        file_list = []
+        for pattern in patterns:
+            file_list.extend(glob(pattern, recursive=True))
+
+        if not file_list:
+            print(f"⚠️  No files found matching patterns: {', '.join(patterns)}")
+
+        # Always run naming checks
+        if naming_only or "naming" in determine_checks(
+            profile="default", explicit=None, naming_only=naming_only
+        ):
+            report.merge(
+                lint_naming(
+                    patterns,
+                    component_style,
+                    parameter_style,
+                    component_style_rgx,
+                    parameter_style_rgx,
+                    allow_acronyms,
+                )
             )
-        )
+
+        # If not naming-only, also run perspective linting on view.json files
+        if not naming_only:
+            view_files = [f for f in file_list if f.endswith("view.json")]
+            if view_files:
+                print(f"🔍 Running perspective lint on {len(view_files)} view files")
+                for view_file in view_files:
+                    view_path = Path(view_file).parent
+                    report.merge(
+                        lint_perspective(
+                            view_path,
+                            schema_mode,
+                            component_type=os.getenv("INPUT_COMPONENT"),
+                            verbose=False,
+                        )
+                    )
     else:
         print("❌ Either project path or files must be provided")
         sys.exit(1)
