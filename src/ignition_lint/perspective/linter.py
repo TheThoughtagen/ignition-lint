@@ -65,6 +65,7 @@ class IgnitionPerspectiveLinter:
         self.jython_validator = JythonValidator()
         self.expression_validator = ExpressionValidator()
         self.known_prop_names = self._extract_known_props()
+        self._component_props = self._load_component_props()
 
         # Known best practices patterns
         self.best_practices = {
@@ -155,6 +156,26 @@ class IgnitionPerspectiveLinter:
             props = {"style", "text", "value", "enabled", "visible"}
 
         return frozenset(props)
+
+    @staticmethod
+    def _load_component_props() -> dict[str, frozenset[str]]:
+        """Load per-component property map from component-props.json."""
+        comp_props_path = Path(__file__).parent.parent / "schemas" / "component-props.json"
+        try:
+            with open(comp_props_path) as f:
+                raw = json.load(f)
+            return {k: frozenset(v) for k, v in raw.items()}
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+
+    def _get_known_props_for_type(self, comp_type: str) -> frozenset[str]:
+        """Return known properties for a specific component type.
+
+        Merges component-specific props with generic schema props.
+        Falls back to generic-only for unknown component types.
+        """
+        type_specific = self._component_props.get(comp_type, frozenset())
+        return self.known_prop_names | type_specific
 
     def find_view_files(self, target_path: str) -> list[str]:
         """Find all view.json files in the target directory."""
@@ -251,9 +272,10 @@ class IgnitionPerspectiveLinter:
 
         # Check for unknown props
         props = component.get("props", {})
+        known_for_type = self._get_known_props_for_type(comp_type)
         if isinstance(props, dict):
             for prop_name in props:
-                if prop_name not in self.known_prop_names:
+                if prop_name not in known_for_type:
                     self.issues.append(
                         LintIssue(
                             severity=LintSeverity.STYLE,

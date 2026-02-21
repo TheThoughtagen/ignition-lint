@@ -393,3 +393,152 @@ class TestSchemaResolution:
     def test_invalid_tag_mode_raises(self):
         with pytest.raises(ValueError, match="Unknown tag schema mode"):
             tag_schema_path_for("nonexistent")
+
+
+# ---------------------------------------------------------------------------
+# TestUdtInstanceContextAwareness
+# ---------------------------------------------------------------------------
+
+
+class TestUdtInstanceContextAwareness:
+    """UdtInstance children should NOT get MISSING_DATA_TYPE or MISSING_VALUE_SOURCE
+    because their dataType/valueSource are inherited from the UDT definition."""
+
+    def test_atomic_child_of_udt_instance_no_missing_data_type(self):
+        """AtomicTag directly inside UdtInstance: no MISSING_DATA_TYPE."""
+        tag = {
+            "name": "Inst1",
+            "tagType": "UdtInstance",
+            "typeId": "custom/MyUDT",
+            "tags": [
+                {"name": "Member1", "tagType": "AtomicTag", "valueSource": "memory"},
+            ],
+        }
+        issues = _lint_tag(tag)
+        assert "MISSING_DATA_TYPE" not in _codes(issues)
+
+    def test_atomic_child_of_udt_type_missing_data_type_is_warning(self):
+        """AtomicTag inside UdtType is a definition — should still be WARNING."""
+        tag = {
+            "name": "MyUDT",
+            "tagType": "UdtType",
+            "typeId": "custom/MyUDT",
+            "tags": [
+                {"name": "Member1", "tagType": "AtomicTag", "valueSource": "memory"},
+            ],
+        }
+        issues = _lint_tag(tag)
+        dt_issues = _issues_with_code(issues, "MISSING_DATA_TYPE")
+        assert len(dt_issues) == 1
+        from ignition_lint.reporting import LintSeverity
+
+        assert dt_issues[0].severity == LintSeverity.WARNING
+
+    def test_root_level_atomic_missing_data_type_is_warning(self):
+        """Root-level AtomicTag: MISSING_DATA_TYPE should remain WARNING."""
+        tag = {"name": "RootTag", "tagType": "AtomicTag", "valueSource": "memory"}
+        issues = _lint_tag(tag)
+        dt_issues = _issues_with_code(issues, "MISSING_DATA_TYPE")
+        assert len(dt_issues) == 1
+        from ignition_lint.reporting import LintSeverity
+
+        assert dt_issues[0].severity == LintSeverity.WARNING
+
+    def test_atomic_under_udt_instance_folder_suppressed(self):
+        """UdtInstance > Folder > AtomicTag: suppression propagates through folders."""
+        tag = {
+            "name": "Inst1",
+            "tagType": "UdtInstance",
+            "typeId": "custom/MyUDT",
+            "tags": [
+                {
+                    "name": "SubFolder",
+                    "tagType": "Folder",
+                    "tags": [
+                        {"name": "Deep", "tagType": "AtomicTag", "valueSource": "memory"},
+                    ],
+                }
+            ],
+        }
+        issues = _lint_tag(tag)
+        assert "MISSING_DATA_TYPE" not in _codes(issues)
+
+    def test_atomic_under_root_folder_is_warning(self):
+        """Folder > AtomicTag (no UdtInstance ancestor): still WARNING."""
+        tag = {
+            "name": "TopFolder",
+            "tagType": "Folder",
+            "tags": [
+                {"name": "Child", "tagType": "AtomicTag", "valueSource": "memory"},
+            ],
+        }
+        issues = _lint_tag(tag)
+        dt_issues = _issues_with_code(issues, "MISSING_DATA_TYPE")
+        assert len(dt_issues) == 1
+        from ignition_lint.reporting import LintSeverity
+
+        assert dt_issues[0].severity == LintSeverity.WARNING
+
+    def test_missing_value_source_inside_udt_instance_suppressed(self):
+        """MISSING_VALUE_SOURCE inside UdtInstance should be suppressed entirely."""
+        tag = {
+            "name": "Inst1",
+            "tagType": "UdtInstance",
+            "typeId": "custom/MyUDT",
+            "tags": [
+                {"name": "Member1", "tagType": "AtomicTag", "dataType": "Int4"},
+            ],
+        }
+        issues = _lint_tag(tag)
+        assert "MISSING_VALUE_SOURCE" not in _codes(issues)
+
+    def test_missing_value_source_at_root_says_defaults_to_memory(self):
+        """MISSING_VALUE_SOURCE at root should say 'defaults to memory'."""
+        tag = {"name": "RootTag", "tagType": "AtomicTag", "dataType": "Int4"}
+        issues = _lint_tag(tag)
+        vs_issues = _issues_with_code(issues, "MISSING_VALUE_SOURCE")
+        assert len(vs_issues) == 1
+        assert "defaults to memory" in vs_issues[0].message
+
+    def test_nested_udt_instance_missing_type_id_suppressed(self):
+        """UdtInstance child of UdtInstance missing typeId: suppressed (inherited)."""
+        tag = {
+            "name": "Inst1",
+            "tagType": "UdtInstance",
+            "typeId": "custom/MyUDT",
+            "tags": [
+                {"name": "NestedInst", "tagType": "UdtInstance"},
+            ],
+        }
+        issues = _lint_tag(tag)
+        assert "MISSING_TYPE_ID" not in _codes(issues)
+
+    def test_root_udt_instance_missing_type_id_is_error(self):
+        """Root-level UdtInstance missing typeId: still ERROR."""
+        tag = {"name": "NoType", "tagType": "UdtInstance"}
+        issues = _lint_tag(tag)
+        tid_issues = _issues_with_code(issues, "MISSING_TYPE_ID")
+        assert len(tid_issues) == 1
+        from ignition_lint.reporting import LintSeverity
+
+        assert tid_issues[0].severity == LintSeverity.ERROR
+
+    def test_complete_child_inside_udt_instance_no_missing_issues(self):
+        """Complete AtomicTag inside UdtInstance should not trigger MISSING_DATA_TYPE
+        or MISSING_VALUE_SOURCE."""
+        tag = {
+            "name": "Inst1",
+            "tagType": "UdtInstance",
+            "typeId": "custom/MyUDT",
+            "tags": [
+                {
+                    "name": "Member1",
+                    "tagType": "AtomicTag",
+                    "dataType": "Int4",
+                    "valueSource": "memory",
+                },
+            ],
+        }
+        issues = _lint_tag(tag)
+        assert "MISSING_DATA_TYPE" not in _codes(issues)
+        assert "MISSING_VALUE_SOURCE" not in _codes(issues)

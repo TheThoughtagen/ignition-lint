@@ -85,3 +85,114 @@ class TestPy2Preprocessing:
         issues = validate(script)
         codes = {i.code for i in issues}
         assert "JYTHON_SYNTAX_ERROR" not in codes
+
+
+class TestTripleQuotedStrings:
+    """Lines inside triple-quoted strings must not trigger indentation errors."""
+
+    def test_triple_double_quoted_graphql(self):
+        """GraphQL inside triple double-quotes should not trigger indentation."""
+        script = (
+            '\tquery = """\n'
+            "{\n"
+            "  users {\n"
+            "    id\n"
+            "    name\n"
+            "  }\n"
+            "}\n"
+            '"""\n'
+            "\treturn query"
+        )
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_INDENTATION_REQUIRED" not in codes
+        assert "JYTHON_INCONSISTENT_INDENTATION_STYLE" not in codes
+
+    def test_triple_single_quoted_sql(self):
+        """SQL inside triple single-quotes should not trigger indentation."""
+        script = (
+            "\tsql = '''\n"
+            "SELECT id, name\n"
+            "FROM users\n"
+            "WHERE active = 1\n"
+            "'''\n"
+            "\treturn sql"
+        )
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_INDENTATION_REQUIRED" not in codes
+
+    def test_real_indentation_error_outside_triple_quote(self):
+        """Indentation errors outside triple-quoted strings are still caught."""
+        script = (
+            '\tquery = """\n'
+            "SELECT *\n"
+            '"""\n'
+            "bad_line = 1\n"  # no indentation — should be flagged
+        )
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_INDENTATION_REQUIRED" in codes
+
+    def test_triple_quote_open_and_close_same_line(self):
+        """Triple-quote open+close on same line doesn't corrupt state."""
+        script = '\tx = """inline string"""\n\ty = 1'
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_INDENTATION_REQUIRED" not in codes
+
+    def test_multiple_triple_quoted_blocks(self):
+        """Multiple triple-quoted blocks should all be skipped."""
+        script = (
+            '\tq1 = """\nSELECT 1\n"""\n'
+            "\tq2 = '''\nSELECT 2\n'''\n"
+            "\treturn q1 + q2"
+        )
+        issues = validate(script)
+        codes = {i.code for i in issues}
+        assert "JYTHON_INDENTATION_REQUIRED" not in codes
+
+
+def validate_with_context(script: str, context: str):
+    validator = JythonValidator()
+    return validator.validate_script(script, context=context)
+
+
+class TestTransformSyntax:
+    """Transform scripts should be parsed correctly despite leading indentation."""
+
+    def test_transform_with_triple_quoted_string(self):
+        """Transform containing triple-quoted string should not produce syntax error."""
+        script = (
+            '\tquery = """\n'
+            "{\n"
+            "  users {\n"
+            "    id\n"
+            "  }\n"
+            '"""\n'
+            "\treturn query"
+        )
+        issues = validate_with_context(script, "transform[0]")
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" not in codes
+
+    def test_transform_genuine_syntax_error(self):
+        """Genuine syntax errors in transforms are still caught."""
+        script = "\tif value >\n\t\tpass"
+        issues = validate_with_context(script, "transform[0]")
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" in codes
+
+    def test_simple_transform_parses(self):
+        """Simple transform scripts parse without issue."""
+        script = "\tif value > 10:\n\t\treturn 'high'\n\treturn 'low'"
+        issues = validate_with_context(script, "transform[0]")
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" not in codes
+
+    def test_binding_transform_context_variant(self):
+        """Context like 'view.binding.transform[0]' should also trigger wrapping."""
+        script = "\treturn str(value)"
+        issues = validate_with_context(script, "view.binding.transform[0]")
+        codes = {i.code for i in issues}
+        assert "JYTHON_SYNTAX_ERROR" not in codes

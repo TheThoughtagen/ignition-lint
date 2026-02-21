@@ -274,6 +274,79 @@ class TestUnknownPropValidation:
         assert "text" in linter.known_prop_names
 
 
+class TestPerComponentUnknownProp:
+    """Per-component property map reduces UNKNOWN_PROP false positives."""
+
+    def test_table_specific_props_not_flagged(self):
+        """Table-specific props like 'columns', 'data', 'pager' should not be flagged."""
+        view = {
+            "custom": {},
+            "root": {
+                "type": "ia.display.table",
+                "meta": {"name": "DataTable"},
+                "props": {
+                    "data": [],
+                    "columns": [],
+                    "pager": {"show": True},
+                    "filter": {"enabled": True},
+                    "style": {},
+                },
+                "children": [],
+            },
+        }
+        issues = _lint_view(view)
+        assert "UNKNOWN_PROP" not in _codes(issues)
+
+    def test_genuinely_unknown_prop_still_flagged(self):
+        """A truly unknown prop should still be flagged even on a known component."""
+        view = {
+            "custom": {},
+            "root": {
+                "type": "ia.display.table",
+                "meta": {"name": "DataTable"},
+                "props": {"data": [], "zzNonexistent": True},
+                "children": [],
+            },
+        }
+        issues = _lint_view(view)
+        unknown = [i for i in issues if i.code == "UNKNOWN_PROP"]
+        assert len(unknown) == 1
+        assert "zzNonexistent" in unknown[0].message
+
+    def test_dropdown_specific_props_not_flagged(self):
+        """Dropdown-specific props should pass validation."""
+        view = {
+            "custom": {},
+            "root": {
+                "type": "ia.input.dropdown",
+                "meta": {"name": "MyDropdown"},
+                "props": {
+                    "options": [],
+                    "value": "",
+                    "multiSelect": False,
+                    "showClearIcon": True,
+                },
+                "children": [],
+            },
+        }
+        issues = _lint_view(view)
+        assert "UNKNOWN_PROP" not in _codes(issues)
+
+    def test_unknown_component_type_falls_back_to_generic(self):
+        """Unknown component types still use generic schema props."""
+        view = {
+            "custom": {},
+            "root": {
+                "type": "ia.custom.mywidget",
+                "meta": {"name": "Widget"},
+                "props": {"style": {}, "text": "hello"},
+                "children": [],
+            },
+        }
+        issues = _lint_view(view)
+        assert "UNKNOWN_PROP" not in _codes(issues)
+
+
 class TestExpressionValidation:
     def test_now_default_polling_flagged(self):
         view = {

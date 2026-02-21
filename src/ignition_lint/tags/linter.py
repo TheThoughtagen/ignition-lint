@@ -167,7 +167,10 @@ class IgnitionTagLinter:
     # Recursive tag walker
     # ------------------------------------------------------------------
 
-    def _validate_tag_node(self, node: dict, file_path: str, tag_path: str) -> bool:
+    def _validate_tag_node(
+        self, node: dict, file_path: str, tag_path: str,
+        inside_udt_instance: bool = False,
+    ) -> bool:
         """Validate a single tag node and recurse into children."""
         if not isinstance(node, dict):
             # Report error for malformed tag entries
@@ -199,7 +202,7 @@ class IgnitionTagLinter:
         schema_valid = self._validate_tag_schema(node, file_path, current_path)
 
         # Best practices checks
-        self._check_tag_best_practices(node, file_path, current_path)
+        self._check_tag_best_practices(node, file_path, current_path, inside_udt_instance)
 
         # Event script validation
         self._validate_event_scripts(node, file_path, current_path)
@@ -213,9 +216,12 @@ class IgnitionTagLinter:
         tags = node.get("tags")
         node_valid = schema_valid
         if isinstance(tags, list):
+            child_inside_udt = inside_udt_instance or tag_type == "UdtInstance"
             for i, child in enumerate(tags):
                 child_path = f"{current_path}/tags[{i}]"
-                child_valid = self._validate_tag_node(child, file_path, child_path)
+                child_valid = self._validate_tag_node(
+                    child, file_path, child_path, child_inside_udt
+                )
                 if not child_valid:
                     node_valid = False
 
@@ -272,7 +278,8 @@ class IgnitionTagLinter:
     # ------------------------------------------------------------------
 
     def _check_tag_best_practices(
-        self, node: dict, file_path: str, tag_path: str
+        self, node: dict, file_path: str, tag_path: str,
+        inside_udt_instance: bool = False,
     ) -> None:
         """Run programmatic best-practice checks on a tag node."""
         tag_type = node.get("tagType", "")
@@ -315,8 +322,8 @@ class IgnitionTagLinter:
 
         # AtomicTag-specific checks
         if tag_type == "AtomicTag":
-            # MISSING_DATA_TYPE
-            if "dataType" not in node:
+            # MISSING_DATA_TYPE — skip inside UdtInstance (inherited from definition)
+            if "dataType" not in node and not inside_udt_instance:
                 self.issues.append(
                     LintIssue(
                         severity=LintSeverity.WARNING,
@@ -330,8 +337,8 @@ class IgnitionTagLinter:
                     )
                 )
 
-            # MISSING_VALUE_SOURCE
-            if "valueSource" not in node:
+            # MISSING_VALUE_SOURCE — skip inside UdtInstance (inherited from definition)
+            if "valueSource" not in node and not inside_udt_instance:
                 self.issues.append(
                     LintIssue(
                         severity=LintSeverity.INFO,
@@ -436,9 +443,10 @@ class IgnitionTagLinter:
                     )
                 )
 
-        # UdtInstance-specific checks
+        # UdtInstance-specific checks — skip typeId check inside UdtInstance
+        # (nested UdtInstance members inherit typeId from the UDT definition)
         if tag_type == "UdtInstance":
-            if "typeId" not in node:
+            if "typeId" not in node and not inside_udt_instance:
                 self.issues.append(
                     LintIssue(
                         severity=LintSeverity.ERROR,

@@ -192,9 +192,20 @@ class JythonValidator:
         inconsistent_levels = []
 
         previous_indent = 0
+        in_triple_quote = False
 
         for index, line in enumerate(lines, 1):
             if not line.strip():
+                continue
+
+            # Track triple-quoted string state; skip content lines inside them
+            was_in_triple = in_triple_quote
+            for tq in ('"""', "'''"):
+                count = line.count(tq)
+                if count % 2 == 1:
+                    in_triple_quote = not in_triple_quote
+                    break
+            if was_in_triple:
                 continue
 
             tabs = len(line) - len(line.lstrip("\t"))
@@ -264,20 +275,30 @@ class JythonValidator:
             )
 
     def _check_syntax(self, script: str, context: str) -> None:
-        # Ignition stores inline scripts with leading indentation; dedent before parsing
-        dedented = textwrap.dedent(script)
-        # Transform Python 2 constructs so the Python 3 parser doesn't reject them
-        transformed = _preprocess_py2(dedented)
+        # Script transforms are stored with leading tab indentation inside an
+        # implicit function body.  When triple-quoted strings break
+        # textwrap.dedent() common-prefix detection, ast.parse() fails.
+        # Wrap transforms in a def so the indentation is valid Python.
+        is_transform = "transform[" in context
+        if is_transform:
+            prepared = f"def _transform(self, value, quality, timestamp):\n{script}"
+            prepared = _preprocess_py2(prepared)
+        else:
+            # Ignition stores inline scripts with leading indentation; dedent before parsing
+            prepared = _preprocess_py2(textwrap.dedent(script))
+
+        line_offset = -1 if is_transform else 0
         try:
-            ast.parse(transformed)
+            ast.parse(prepared)
         except SyntaxError as exc:
+            reported_line = max(1, (exc.lineno or 1) + line_offset)
             self.issues.append(
                 JythonIssue(
                     severity=LintSeverity.ERROR,
                     code="JYTHON_SYNTAX_ERROR",
                     message=f"Python syntax error: {exc.msg}",
-                    suggestion=f"Fix syntax near line {exc.lineno}.",
-                    line_number=exc.lineno or 1,
+                    suggestion=f"Fix syntax near line {reported_line}.",
+                    line_number=reported_line,
                 )
             )
         except Exception as exc:

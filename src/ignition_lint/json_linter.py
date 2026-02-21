@@ -157,7 +157,9 @@ class JsonLinter:
         if isinstance(data, dict):
             for key, value in data.items():
                 if key == "name" and isinstance(value, str):
-                    if not self.component_checker.is_correct_style(value):
+                    # Skip "root" — Ignition assigns this to every view's root
+                    # component by convention and it cannot be renamed.
+                    if value != "root" and not self.component_checker.is_correct_style(value):
                         self.errors.append(
                             ValidationError(
                                 file_path,

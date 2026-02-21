@@ -1,0 +1,253 @@
+{
+  "ia.chart.pie": [
+    "colors",
+    "cutoutRadius",
+    "data",
+    "labels",
+    "legend",
+    "showLabels",
+    "showLegend",
+    "style",
+    "threeDimensional",
+    "tooltipFormat",
+    "valueFormat"
+  ],
+  "ia.chart.xy": [
+    "dataSources",
+    "series",
+    "xAxes",
+    "yAxes"
+  ],
+  "ia.container.breakpt": [
+    "breakpoint",
+    "style"
+  ],
+  "ia.container.coord": [
+    "aspectRatio",
+    "mode",
+    "style"
+  ],
+  "ia.container.flex": [
+    "alignContent",
+    "alignItems",
+    "direction",
+    "justify",
+    "style",
+    "wrap"
+  ],
+  "ia.container.tab": [
+    "contentStyle",
+    "menuType",
+    "style",
+    "tabSize",
+    "tabStyle",
+    "tabs"
+  ],
+  "ia.display.alarmjournaltable": [
+    "responsive"
+  ],
+  "ia.display.alarmstatustable": [
+    "columns",
+    "filters"
+  ],
+  "ia.display.flex-repeater": [
+    "alignContent",
+    "alignItems",
+    "direction",
+    "elementPosition",
+    "elementStyle",
+    "path",
+    "style",
+    "useDefaultViewHeight",
+    "useDefaultViewWidth",
+    "wrap"
+  ],
+  "ia.display.icon": [
+    "color",
+    "path",
+    "style"
+  ],
+  "ia.display.iframe": [
+    "allowFullScreen",
+    "referrerPolicy",
+    "src",
+    "style"
+  ],
+  "ia.display.image": [
+    "fit",
+    "source",
+    "style"
+  ],
+  "ia.display.label": [
+    "alignVertical",
+    "style",
+    "text",
+    "textStyle",
+    "visible"
+  ],
+  "ia.display.markdown": [
+    "markdown",
+    "sectionSpacing",
+    "style"
+  ],
+  "ia.display.progress": [
+    "bar",
+    "style"
+  ],
+  "ia.display.table": [
+    "bodyStyle",
+    "cells",
+    "columns",
+    "data",
+    "dragOrderable",
+    "emptyMessage",
+    "enableFooterGroups",
+    "filter",
+    "footerGroups",
+    "minRowHeight",
+    "pager",
+    "rows",
+    "selection",
+    "style",
+    "virtualized"
+  ],
+  "ia.display.tag-browse-tree": [
+    "selection"
+  ],
+  "ia.display.tree": [
+    "appearance",
+    "branchNodeSelectable",
+    "selection",
+    "selectionData",
+    "style"
+  ],
+  "ia.display.view": [
+    "loading",
+    "params",
+    "path",
+    "style",
+    "text",
+    "useDefaultViewHeight",
+    "useDefaultViewWidth"
+  ],
+  "ia.display.viewcanvas": [
+    "instances",
+    "style",
+    "transitionSettings",
+    "useDefaultViewHeight",
+    "useDefaultViewWidth"
+  ],
+  "ia.input.button": [
+    "enabled",
+    "image",
+    "primary",
+    "style",
+    "text",
+    "textStyle"
+  ],
+  "ia.input.checkbox": [
+    "checkedIcon",
+    "enabled",
+    "indeterminateIcon",
+    "inputStyle",
+    "style",
+    "text",
+    "textPosition",
+    "uncheckedIcon"
+  ],
+  "ia.input.date-time-input": [
+    "format",
+    "formattedValue",
+    "formattedValues",
+    "inputProps",
+    "modalStyle",
+    "pickerType",
+    "placeholder",
+    "style",
+    "value"
+  ],
+  "ia.input.dropdown": [
+    "allowCustomOptions",
+    "dropdownOptionStyle",
+    "multiSelect",
+    "options",
+    "placeholder",
+    "required",
+    "search",
+    "showClearIcon",
+    "style",
+    "textAlign",
+    "value"
+  ],
+  "ia.input.fileupload": [
+    "fileUploadIcon",
+    "maxUploads",
+    "supportedFileTypes"
+  ],
+  "ia.input.multi-state-button": [
+    "buttonGap",
+    "controlValue",
+    "defaultSelectedStyle",
+    "defaultUnselectedStyle",
+    "enabled",
+    "orientation",
+    "states",
+    "style"
+  ],
+  "ia.input.numeric-entry-field": [
+    "align",
+    "containerStyle",
+    "format",
+    "inputBounds",
+    "mode",
+    "spinner",
+    "style",
+    "tooltipText",
+    "value"
+  ],
+  "ia.input.oneshotbutton": [
+    "confirm",
+    "readyState",
+    "setValue",
+    "style",
+    "writingState"
+  ],
+  "ia.input.signature-pad": [
+    "actionBar"
+  ],
+  "ia.input.text-area": [
+    "deferUpdates",
+    "enabled",
+    "placeholder",
+    "resize",
+    "style",
+    "wrap"
+  ],
+  "ia.input.text-field": [
+    "deferUpdates",
+    "enabled",
+    "placeholder",
+    "rejectUpdatesWhileFocused",
+    "spellcheck",
+    "style"
+  ],
+  "ia.input.toggle-switch": [
+    "color",
+    "label",
+    "selected",
+    "style"
+  ],
+  "ia.navigation.horizontalmenu": [
+    "itemStyle",
+    "items",
+    "style"
+  ],
+  "ia.navigation.menutree": [
+    "backActionStyle",
+    "backActionText",
+    "headerStyle",
+    "itemStyle",
+    "items",
+    "style"
+  ]
+}
