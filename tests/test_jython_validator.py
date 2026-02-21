@@ -93,15 +93,7 @@ class TestTripleQuotedStrings:
     def test_triple_double_quoted_graphql(self):
         """GraphQL inside triple double-quotes should not trigger indentation."""
         script = (
-            '\tquery = """\n'
-            "{\n"
-            "  users {\n"
-            "    id\n"
-            "    name\n"
-            "  }\n"
-            "}\n"
-            '"""\n'
-            "\treturn query"
+            '\tquery = """\n{\n  users {\n    id\n    name\n  }\n}\n"""\n\treturn query'
         )
         issues = validate(script)
         codes = {i.code for i in issues}
@@ -163,15 +155,7 @@ class TestTransformSyntax:
 
     def test_transform_with_triple_quoted_string(self):
         """Transform containing triple-quoted string should not produce syntax error."""
-        script = (
-            '\tquery = """\n'
-            "{\n"
-            "  users {\n"
-            "    id\n"
-            "  }\n"
-            '"""\n'
-            "\treturn query"
-        )
+        script = '\tquery = """\n{\n  users {\n    id\n  }\n"""\n\treturn query'
         issues = validate_with_context(script, "transform[0]")
         codes = {i.code for i in issues}
         assert "JYTHON_SYNTAX_ERROR" not in codes

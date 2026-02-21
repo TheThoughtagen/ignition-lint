@@ -160,7 +160,9 @@ class IgnitionPerspectiveLinter:
     @staticmethod
     def _load_component_props() -> dict[str, frozenset[str]]:
         """Load per-component property map from component-props.json."""
-        comp_props_path = Path(__file__).parent.parent / "schemas" / "component-props.json"
+        comp_props_path = (
+            Path(__file__).parent.parent / "schemas" / "component-props.json"
+        )
         try:
             with open(comp_props_path) as f:
                 raw = json.load(f)
