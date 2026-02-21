@@ -455,7 +455,11 @@ class TestUdtInstanceContextAwareness:
                     "name": "SubFolder",
                     "tagType": "Folder",
                     "tags": [
-                        {"name": "Deep", "tagType": "AtomicTag", "valueSource": "memory"},
+                        {
+                            "name": "Deep",
+                            "tagType": "AtomicTag",
+                            "valueSource": "memory",
+                        },
                     ],
                 }
             ],

@@ -168,7 +168,10 @@ class IgnitionTagLinter:
     # ------------------------------------------------------------------
 
     def _validate_tag_node(
-        self, node: dict, file_path: str, tag_path: str,
+        self,
+        node: dict,
+        file_path: str,
+        tag_path: str,
         inside_udt_instance: bool = False,
     ) -> bool:
         """Validate a single tag node and recurse into children."""
@@ -202,7 +205,9 @@ class IgnitionTagLinter:
         schema_valid = self._validate_tag_schema(node, file_path, current_path)
 
         # Best practices checks
-        self._check_tag_best_practices(node, file_path, current_path, inside_udt_instance)
+        self._check_tag_best_practices(
+            node, file_path, current_path, inside_udt_instance
+        )
 
         # Event script validation
         self._validate_event_scripts(node, file_path, current_path)
@@ -278,7 +283,10 @@ class IgnitionTagLinter:
     # ------------------------------------------------------------------
 
     def _check_tag_best_practices(
-        self, node: dict, file_path: str, tag_path: str,
+        self,
+        node: dict,
+        file_path: str,
+        tag_path: str,
         inside_udt_instance: bool = False,
     ) -> None:
         """Run programmatic best-practice checks on a tag node."""

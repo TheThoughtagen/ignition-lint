@@ -61,7 +61,7 @@ class IgnitionScriptLinter:
         self.total_lines_analyzed = 0
         self._current_suppressions: dict[str, Any] | None = None
 
-        # Ignition system modules and functions
+        # Ignition system modules and functions (8.1 + 8.3)
         self.ignition_system_modules = {
             "system.alarm",
             "system.bacnet",
@@ -70,20 +70,36 @@ class IgnitionScriptLinter:
             "system.date",
             "system.db",
             "system.device",
+            "system.dnp",
+            "system.dnp3",
+            "system.eam",
+            "system.eventstream",  # 8.3+
             "system.file",
+            "system.groups",
             "system.gui",
+            "system.historian",  # 8.3+
             "system.iec61850",
+            "system.kafka",  # 8.3+
             "system.math",
             "system.mongodb",
+            "system.nav",
             "system.net",
-            "system.opcua",
             "system.opc",
+            "system.opchda",
+            "system.opcua",
             "system.perspective",
             "system.print",
             "system.project",
             "system.report",
+            "system.roster",
+            "system.secrets",  # 8.3+
+            "system.secsgem",
             "system.security",
+            "system.serial",
+            "system.sfc",
             "system.tag",
+            "system.twilio",
+            "system.user",
             "system.util",
             "system.vision",
             "system.webdev",
