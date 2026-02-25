@@ -272,7 +272,7 @@ class ExpressionValidator:
             # {root.custom.X} or {root.params.X} in expressions is invalid — the
             # correct syntax is {view.custom.X} or {view.params.X}.
             if ref.startswith("root.custom.") or ref.startswith("root.params."):
-                suffix = ref[len("root."):]
+                suffix = ref[len("root.") :]
                 issues.append(
                     LintIssue(
                         severity=LintSeverity.ERROR,
@@ -404,7 +404,10 @@ class ExpressionValidator:
         for func in _SIZE_GUARD_FUNCS:
             for m in re.finditer(rf"\b{func}\s*\(\s*\{{([^}}]+)\}}\s*\)", expression):
                 guarded_prop = m.group(1).strip()
-                if guarded_prop in indexed_props and guarded_prop not in already_reported:
+                if (
+                    guarded_prop in indexed_props
+                    and guarded_prop not in already_reported
+                ):
                     already_reported.add(guarded_prop)
                     op = "&&" if "&&" in expression else "||"
                     issues.append(
