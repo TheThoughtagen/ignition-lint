@@ -460,9 +460,7 @@ class TestPropertyBindingPathValidation:
                             "props.text": {
                                 "binding": {
                                     "type": "property",
-                                    "config": {
-                                        "path": "/root/Header/Label.props.text"
-                                    },
+                                    "config": {"path": "/root/Header/Label.props.text"},
                                 }
                             }
                         },
@@ -493,3 +491,533 @@ class TestPropertyBindingPathValidation:
         }
         issues = _lint_view(view)
         assert "BINDING_ROOT_DOT_PATH" not in _codes(issues)
+
+
+class TestBindingPathSyntax:
+    """Tier 1: Syntax validation for property binding paths."""
+
+    def test_bare_root_custom_flagged(self):
+        """root.custom.X without leading / or view. scope is flagged."""
+        view = {
+            "custom": {"myProp": ""},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "property",
+                            "config": {"path": "root.custom.myProp"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_BARE_ROOT_PATH" in _codes(issues)
+        issue = next(i for i in issues if i.code == "BINDING_BARE_ROOT_PATH")
+        assert "view.custom.myProp" in issue.suggestion
+
+    def test_bare_root_params_flagged(self):
+        """root.params.X without leading / or view. scope is flagged."""
+        view = {
+            "custom": {},
+            "params": {"item": ""},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "property",
+                            "config": {"path": "root.params.item"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_BARE_ROOT_PATH" in _codes(issues)
+
+    def test_invalid_scope_flagged(self):
+        """A path with dots but no recognized scope prefix is flagged."""
+        view = {
+            "custom": {},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "property",
+                            "config": {"path": "foo.bar.baz"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_INVALID_SCOPE" in _codes(issues)
+        issue = next(i for i in issues if i.code == "BINDING_INVALID_SCOPE")
+        assert "Valid scopes" in issue.suggestion
+
+    def test_valid_scopes_not_flagged(self):
+        """view., this., session., page., parent. scopes should pass."""
+        for scope in ["view.custom.x", "this.props.text", "session.props.auth",
+                       "page.props.path", "parent.custom.y"]:
+            view = {
+                "custom": {"x": ""},
+                "root": {
+                    "type": "ia.display.label",
+                    "meta": {"name": "Label"},
+                    "children": [],
+                    "propConfig": {
+                        "props.text": {
+                            "binding": {
+                                "type": "property",
+                                "config": {"path": scope},
+                            }
+                        }
+                    },
+                },
+            }
+            issues = _lint_view(view)
+            scope_codes = {"BINDING_BARE_ROOT_PATH", "BINDING_INVALID_SCOPE"}
+            assert not scope_codes & _codes(issues), f"Scope '{scope}' was incorrectly flagged"
+
+    def test_relative_path_not_flagged(self):
+        """Relative component refs (./ and ../) should pass syntax checks."""
+        for path in ["./Sibling.props.text", "../Parent/Other.props.value"]:
+            view = {
+                "custom": {},
+                "root": {
+                    "type": "ia.display.label",
+                    "meta": {"name": "Label"},
+                    "children": [],
+                    "propConfig": {
+                        "props.text": {
+                            "binding": {
+                                "type": "property",
+                                "config": {"path": path},
+                            }
+                        }
+                    },
+                },
+            }
+            issues = _lint_view(view)
+            syntax_codes = {"BINDING_BARE_ROOT_PATH", "BINDING_INVALID_SCOPE"}
+            assert not syntax_codes & _codes(issues), f"Path '{path}' was incorrectly flagged"
+
+    def test_no_duplicate_for_root_dot(self):
+        """BINDING_ROOT_DOT_PATH should not also trigger BINDING_INVALID_SCOPE."""
+        view = {
+            "custom": {"x": ""},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "property",
+                            "config": {"path": "/root.custom.x"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_ROOT_DOT_PATH" in _codes(issues)
+        assert "BINDING_INVALID_SCOPE" not in _codes(issues)
+        assert "BINDING_BARE_ROOT_PATH" not in _codes(issues)
+
+
+class TestBindingPathResolution:
+    """Tier 2: Verify view.custom.X and view.params.X resolve."""
+
+    def test_binding_view_custom_not_found(self):
+        """Property binding to view.custom.X where X doesn't exist."""
+        view = {
+            "custom": {"realProp": ""},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "property",
+                            "config": {"path": "view.custom.missingProp"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_VIEW_PROP_NOT_FOUND" in _codes(issues)
+        issue = next(i for i in issues if i.code == "BINDING_VIEW_PROP_NOT_FOUND")
+        assert "missingProp" in issue.message
+
+    def test_binding_view_params_not_found(self):
+        """Property binding to view.params.X where X doesn't exist."""
+        view = {
+            "custom": {},
+            "params": {"realParam": ""},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "property",
+                            "config": {"path": "view.params.missingParam"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_VIEW_PROP_NOT_FOUND" in _codes(issues)
+
+    def test_binding_view_custom_found(self):
+        """Property binding to view.custom.X where X exists should pass."""
+        view = {
+            "custom": {"myProp": "hello"},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "property",
+                            "config": {"path": "view.custom.myProp"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_VIEW_PROP_NOT_FOUND" not in _codes(issues)
+
+    def test_binding_deep_path_checks_top_key_only(self):
+        """view.custom.alarm.name only checks that 'alarm' exists, not 'alarm.name'."""
+        view = {
+            "custom": {"alarm": {"name": "Test"}},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "property",
+                            "config": {"path": "view.custom.alarm.name"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_VIEW_PROP_NOT_FOUND" not in _codes(issues)
+
+    def test_binding_array_index_stripped(self):
+        """view.custom.items[0].x checks that 'items' exists."""
+        view = {
+            "custom": {"items": [1, 2, 3]},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "property",
+                            "config": {"path": "view.custom.items[0].x"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_VIEW_PROP_NOT_FOUND" not in _codes(issues)
+
+
+class TestComponentPathResolution:
+    """Tier 3: Verify /root/A/B component paths resolve."""
+
+    def test_valid_component_path_passes(self):
+        """A valid /root/Header/Label.props.text path should not be flagged."""
+        view = {
+            "custom": {},
+            "root": {
+                "type": "ia.container.flex",
+                "meta": {"name": "Root"},
+                "children": [
+                    {
+                        "type": "ia.container.flex",
+                        "meta": {"name": "Header"},
+                        "children": [
+                            {
+                                "type": "ia.display.label",
+                                "meta": {"name": "Label"},
+                                "children": [],
+                            }
+                        ],
+                    },
+                    {
+                        "type": "ia.display.label",
+                        "meta": {"name": "Consumer"},
+                        "children": [],
+                        "propConfig": {
+                            "props.text": {
+                                "binding": {
+                                    "type": "property",
+                                    "config": {"path": "/root/Header/Label.props.text"},
+                                }
+                            }
+                        },
+                    },
+                ],
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_COMPONENT_NOT_FOUND" not in _codes(issues)
+
+    def test_invalid_component_path_flagged(self):
+        """A /root/Header/Missing.props.text path should be flagged."""
+        view = {
+            "custom": {},
+            "root": {
+                "type": "ia.container.flex",
+                "meta": {"name": "Root"},
+                "children": [
+                    {
+                        "type": "ia.container.flex",
+                        "meta": {"name": "Header"},
+                        "children": [
+                            {
+                                "type": "ia.display.label",
+                                "meta": {"name": "Label"},
+                                "children": [],
+                            }
+                        ],
+                    },
+                    {
+                        "type": "ia.display.label",
+                        "meta": {"name": "Consumer"},
+                        "children": [],
+                        "propConfig": {
+                            "props.text": {
+                                "binding": {
+                                    "type": "property",
+                                    "config": {"path": "/root/Header/Missing.props.text"},
+                                }
+                            }
+                        },
+                    },
+                ],
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_COMPONENT_NOT_FOUND" in _codes(issues)
+        issue = next(i for i in issues if i.code == "BINDING_COMPONENT_NOT_FOUND")
+        assert "Missing" in issue.message
+        assert "Label" in issue.suggestion  # Should suggest available children
+
+    def test_invalid_first_segment_flagged(self):
+        """A /root/Nonexistent.props.text path with wrong first child."""
+        view = {
+            "custom": {},
+            "root": {
+                "type": "ia.container.flex",
+                "meta": {"name": "Root"},
+                "children": [
+                    {
+                        "type": "ia.display.label",
+                        "meta": {"name": "Actual"},
+                        "children": [],
+                        "propConfig": {
+                            "props.text": {
+                                "binding": {
+                                    "type": "property",
+                                    "config": {"path": "/root/Nonexistent.props.text"},
+                                }
+                            }
+                        },
+                    }
+                ],
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_COMPONENT_NOT_FOUND" in _codes(issues)
+        issue = next(i for i in issues if i.code == "BINDING_COMPONENT_NOT_FOUND")
+        assert "Actual" in issue.suggestion
+
+    def test_component_name_with_spaces(self):
+        """Component names with spaces should be handled correctly."""
+        view = {
+            "custom": {},
+            "root": {
+                "type": "ia.container.flex",
+                "meta": {"name": "Root"},
+                "children": [
+                    {
+                        "type": "ia.input.date-range",
+                        "meta": {"name": "Date Range Picker"},
+                        "children": [],
+                    },
+                    {
+                        "type": "ia.display.label",
+                        "meta": {"name": "Consumer"},
+                        "children": [],
+                        "propConfig": {
+                            "props.text": {
+                                "binding": {
+                                    "type": "property",
+                                    "config": {"path": "/root/Date Range Picker.props.value"},
+                                }
+                            }
+                        },
+                    },
+                ],
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_COMPONENT_NOT_FOUND" not in _codes(issues)
+
+    def test_no_children_at_leaf(self):
+        """Path pointing through a leaf component (no children) is flagged."""
+        view = {
+            "custom": {},
+            "root": {
+                "type": "ia.container.flex",
+                "meta": {"name": "Root"},
+                "children": [
+                    {
+                        "type": "ia.display.label",
+                        "meta": {"name": "Label"},
+                        "children": [],
+                    },
+                    {
+                        "type": "ia.display.label",
+                        "meta": {"name": "Consumer"},
+                        "children": [],
+                        "propConfig": {
+                            "props.text": {
+                                "binding": {
+                                    "type": "property",
+                                    "config": {"path": "/root/Label/Nested.props.text"},
+                                }
+                            }
+                        },
+                    },
+                ],
+            },
+        }
+        issues = _lint_view(view)
+        assert "BINDING_COMPONENT_NOT_FOUND" in _codes(issues)
+        issue = next(i for i in issues if i.code == "BINDING_COMPONENT_NOT_FOUND")
+        assert "Nested" in issue.message
+        assert "No children" in issue.suggestion
+
+
+class TestExpressionPathResolution:
+    """Tier 2: Verify {view.custom.X} and {view.params.X} in expressions."""
+
+    def test_expr_view_custom_not_found(self):
+        """{view.custom.missing} in an expression should be flagged."""
+        view = {
+            "custom": {"realProp": ""},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "expr",
+                            "config": {"expression": "if({view.custom.missing}, 'yes', 'no')"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "EXPR_VIEW_PROP_NOT_FOUND" in _codes(issues)
+        issue = next(i for i in issues if i.code == "EXPR_VIEW_PROP_NOT_FOUND")
+        assert "missing" in issue.message
+
+    def test_expr_view_params_not_found(self):
+        """{view.params.missing} in an expression should be flagged."""
+        view = {
+            "custom": {},
+            "params": {"existing": ""},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "expr",
+                            "config": {"expression": "{view.params.missing}"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "EXPR_VIEW_PROP_NOT_FOUND" in _codes(issues)
+
+    def test_expr_view_custom_found(self):
+        """{view.custom.X} where X exists should not be flagged."""
+        view = {
+            "custom": {"myProp": "hello"},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "expr",
+                            "config": {"expression": "{view.custom.myProp}"},
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "EXPR_VIEW_PROP_NOT_FOUND" not in _codes(issues)
+
+    def test_expr_transform_view_ref_checked(self):
+        """{view.custom.missing} in an expression transform should be flagged."""
+        view = {
+            "custom": {"realProp": ""},
+            "root": {
+                "type": "ia.display.label",
+                "meta": {"name": "Label"},
+                "children": [],
+                "propConfig": {
+                    "props.text": {
+                        "binding": {
+                            "type": "tag",
+                            "config": {"tagPath": "[default]MyTag"},
+                            "transforms": [
+                                {
+                                    "type": "expression",
+                                    "expression": "if({view.custom.missing}, {value}, '')",
+                                }
+                            ],
+                        }
+                    }
+                },
+            },
+        }
+        issues = _lint_view(view)
+        assert "EXPR_VIEW_PROP_NOT_FOUND" in _codes(issues)

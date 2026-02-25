@@ -653,10 +653,13 @@ class IgnitionPerspectiveLinter:
             return
 
         path = config["path"]
+        if not isinstance(path, str) or not path.strip():
+            return
+
         # /root.custom.X or /root.params.X is a common mistake — should be view.custom.X
         # or view.params.X.  Valid absolute component refs use slashes: /root/Child.props.X
-        if isinstance(path, str) and path.startswith("/root."):
-            suffix = path[len("/root."):]
+        if path.startswith("/root."):
+            suffix = path[len("/root.") :]
             self.issues.append(
                 LintIssue(
                     severity=LintSeverity.ERROR,
@@ -667,7 +670,61 @@ class IgnitionPerspectiveLinter:
                     component_type=comp_type,
                     suggestion=(
                         f"Change the Property binding path to 'view.{suffix}'. "
-                        f"In the binding config JSON set \"path\": \"view.{suffix}\""
+                        f'In the binding config JSON set "path": "view.{suffix}"'
+                    ),
+                )
+            )
+            return
+
+        # Bare root.custom.X or root.params.X without leading / or view. scope
+        if path.startswith("root.custom.") or path.startswith("root.params."):
+            suffix = path[len("root."):]
+            self.issues.append(
+                LintIssue(
+                    severity=LintSeverity.ERROR,
+                    code="BINDING_BARE_ROOT_PATH",
+                    message=f"Property binding path '{path}' uses bare root. prefix which is not a valid scope",
+                    file_path=file_path,
+                    component_path=f"{component_path}.propConfig.{prop_name}",
+                    component_type=comp_type,
+                    suggestion=(
+                        f"Change to 'view.{suffix}' for view properties "
+                        f"or '/root/...' for component references"
+                    ),
+                )
+            )
+            return
+
+        # Valid scope prefixes — pass through without further syntax checks
+        _VALID_SCOPE_PREFIXES = (
+            "view.", "this.", "session.", "page.", "parent.",
+        )
+        # Valid structural prefixes — absolute and relative component refs
+        _VALID_STRUCTURAL_PREFIXES = (
+            "/root/", "/root.", "./",
+        )
+
+        if any(path.startswith(p) for p in _VALID_SCOPE_PREFIXES):
+            return
+        if any(path.startswith(p) for p in _VALID_STRUCTURAL_PREFIXES):
+            return
+        # Multi-dot relative paths: ../ (1 up), .../ (2 up), ..../ (3 up), etc.
+        if re.match(r"\.{2,}/", path):
+            return
+
+        # If path contains dots but no recognized scope, flag it
+        if "." in path:
+            self.issues.append(
+                LintIssue(
+                    severity=LintSeverity.ERROR,
+                    code="BINDING_INVALID_SCOPE",
+                    message=f"Property binding path '{path}' has no recognized scope prefix",
+                    file_path=file_path,
+                    component_path=f"{component_path}.propConfig.{prop_name}",
+                    component_type=comp_type,
+                    suggestion=(
+                        "Valid scopes: view, this, session, page, parent. "
+                        "For component refs use /root/... or ./"
                     ),
                 )
             )
@@ -1112,6 +1169,270 @@ class IgnitionPerspectiveLinter:
                         )
                     )
 
+    # --- Tier 2 & 3: Binding path resolution (view-level pass) ---
+
+    _PROPERTY_BOUNDARY_RE = re.compile(r"\.(props|custom|position|meta)\.")
+
+    @staticmethod
+    def _build_component_name_tree(node: dict) -> dict:
+        """Build a nested dict from the component tree keyed by meta.name.
+
+        Returns a dict like:
+        {"Header": {"_type": "ia.container.flex", "_children": {"Label": {...}}}, ...}
+        """
+        tree: dict = {}
+        for child in node.get("children", []):
+            name = child.get("meta", {}).get("name", "")
+            if not name:
+                continue
+            entry: dict = {
+                "_type": child.get("type", "unknown"),
+                "_children": IgnitionPerspectiveLinter._build_component_name_tree(child),
+            }
+            tree[name] = entry
+        return tree
+
+    def _resolve_component_path(
+        self,
+        path: str,
+        name_tree: dict,
+        file_path: str,
+        component_path: str,
+        comp_type: str,
+    ):
+        """Verify that an absolute component path resolves in the name tree.
+
+        path: the portion after /root/, e.g. "Header/Label.props.text"
+        """
+        # Find where the component path ends and property access begins
+        boundary = self._PROPERTY_BOUNDARY_RE.search(path)
+        if boundary:
+            component_part = path[: boundary.start()]
+        else:
+            # No property boundary — entire path is component segments
+            component_part = path
+
+        segments = [s for s in component_part.split("/") if s]
+        current = name_tree
+        for i, segment in enumerate(segments):
+            if segment not in current:
+                available = sorted(current.keys())
+                trail = "/root/" + "/".join(segments[: i + 1])
+                available_str = (
+                    f" Available children: {', '.join(available)}"
+                    if available
+                    else " No children at this level"
+                )
+                self.issues.append(
+                    LintIssue(
+                        severity=LintSeverity.WARNING,
+                        code="BINDING_COMPONENT_NOT_FOUND",
+                        message=f"Component path '{trail}' — '{segment}' not found",
+                        file_path=file_path,
+                        component_path=component_path,
+                        component_type=comp_type,
+                        suggestion=f"Check component name spelling.{available_str}",
+                    )
+                )
+                return
+            current = current[segment].get("_children", {})
+
+    def _validate_binding_paths(self, view_data: dict, file_path: str):
+        """View-level pass: resolve view property refs and component paths in bindings."""
+        custom_keys = set()
+        params_keys = set()
+        custom = view_data.get("custom", {})
+        params = view_data.get("params", {})
+        if isinstance(custom, dict):
+            custom_keys = set(custom.keys())
+        if isinstance(params, dict):
+            params_keys = set(params.keys())
+
+        name_tree = self._build_component_name_tree(view_data.get("root", {}))
+
+        # Walk the entire view collecting property binding paths and expression refs
+        self._walk_bindings_for_resolution(
+            view_data, file_path, custom_keys, params_keys, name_tree
+        )
+
+    @staticmethod
+    def _extract_top_level_key(dotted_suffix: str) -> str | None:
+        """Extract the top-level key from a dotted path, stripping array indices.
+
+        'alarm.name' -> 'alarm'
+        'items[0].x' -> 'items'
+        """
+        if not dotted_suffix:
+            return None
+        first = dotted_suffix.split(".")[0]
+        # Strip array index: items[0] -> items
+        bracket = first.find("[")
+        if bracket != -1:
+            first = first[:bracket]
+        return first if first else None
+
+    def _walk_bindings_for_resolution(
+        self,
+        obj: Any,
+        file_path: str,
+        custom_keys: set[str],
+        params_keys: set[str],
+        name_tree: dict,
+        path_prefix: str = "root",
+    ):
+        """Recursively walk view data to find bindings and expression refs for resolution."""
+        if isinstance(obj, dict):
+            prop_config = obj.get("propConfig", {})
+            comp_type = obj.get("type", "view")
+
+            if isinstance(prop_config, dict):
+                for prop_name, config in prop_config.items():
+                    if not isinstance(config, dict):
+                        continue
+                    binding = config.get("binding")
+                    if not isinstance(binding, dict):
+                        continue
+
+                    binding_type = binding.get("type")
+                    binding_config = binding.get("config", {})
+                    component_path = f"{path_prefix}.propConfig.{prop_name}"
+
+                    # Tier 2: Resolve view.custom.X / view.params.X in property bindings
+                    if binding_type == "property" and isinstance(binding_config, dict):
+                        bp = binding_config.get("path", "")
+                        if isinstance(bp, str):
+                            self._check_view_prop_ref(
+                                bp, custom_keys, params_keys, file_path,
+                                component_path, comp_type,
+                                code="BINDING_VIEW_PROP_NOT_FOUND",
+                            )
+
+                    # Tier 3: Resolve /root/A/B component paths in property bindings
+                    if binding_type == "property" and isinstance(binding_config, dict):
+                        bp = binding_config.get("path", "")
+                        if isinstance(bp, str) and bp.startswith("/root/"):
+                            after_root = bp[len("/root/"):]
+                            self._resolve_component_path(
+                                after_root, name_tree, file_path,
+                                component_path, comp_type,
+                            )
+
+                    # Tier 2: Check expression refs {view.custom.X} / {view.params.X}
+                    if binding_type == "expr" and isinstance(binding_config, dict):
+                        expr = binding_config.get("expression", "")
+                        if isinstance(expr, str):
+                            self._check_expr_view_refs(
+                                expr, custom_keys, params_keys,
+                                file_path, component_path, comp_type,
+                            )
+                    if binding_type == "expr-struct" and isinstance(binding_config, dict):
+                        struct = binding_config.get("struct", {})
+                        if isinstance(struct, dict):
+                            for member_name, member_expr in struct.items():
+                                if isinstance(member_expr, str):
+                                    self._check_expr_view_refs(
+                                        member_expr, custom_keys, params_keys,
+                                        file_path,
+                                        f"{component_path}.{member_name}",
+                                        comp_type,
+                                    )
+
+                    # Also check expression transforms
+                    transforms = binding.get("transforms", [])
+                    if isinstance(transforms, list):
+                        for i, transform in enumerate(transforms):
+                            if (
+                                isinstance(transform, dict)
+                                and transform.get("type") == "expression"
+                            ):
+                                expr = transform.get("expression", "")
+                                if isinstance(expr, str):
+                                    self._check_expr_view_refs(
+                                        expr, custom_keys, params_keys,
+                                        file_path,
+                                        f"{component_path}.transforms[{i}]",
+                                        comp_type,
+                                    )
+
+            # Recurse into children
+            children = obj.get("children", [])
+            if isinstance(children, list):
+                for i, child in enumerate(children):
+                    child_name = child.get("meta", {}).get("name", f"[{i}]") if isinstance(child, dict) else f"[{i}]"
+                    self._walk_bindings_for_resolution(
+                        child, file_path, custom_keys, params_keys, name_tree,
+                        f"{path_prefix}/{child_name}",
+                    )
+
+            # Recurse into root (for top-level view_data)
+            if "root" in obj and path_prefix == "root":
+                self._walk_bindings_for_resolution(
+                    obj["root"], file_path, custom_keys, params_keys, name_tree,
+                    "root",
+                )
+
+    def _check_view_prop_ref(
+        self,
+        path: str,
+        custom_keys: set[str],
+        params_keys: set[str],
+        file_path: str,
+        component_path: str,
+        comp_type: str,
+        code: str,
+    ):
+        """Check if a view.custom.X or view.params.X reference resolves."""
+        if path.startswith("view.custom."):
+            suffix = path[len("view.custom."):]
+            top_key = self._extract_top_level_key(suffix)
+            if top_key and top_key not in custom_keys:
+                self.issues.append(
+                    LintIssue(
+                        severity=LintSeverity.WARNING,
+                        code=code,
+                        message=f"Property '{path}' references view.custom.{top_key} which is not defined",
+                        file_path=file_path,
+                        component_path=component_path,
+                        component_type=comp_type,
+                        suggestion=f"Add '{top_key}' to the view's custom properties or fix the path",
+                    )
+                )
+        elif path.startswith("view.params."):
+            suffix = path[len("view.params."):]
+            top_key = self._extract_top_level_key(suffix)
+            if top_key and top_key not in params_keys:
+                self.issues.append(
+                    LintIssue(
+                        severity=LintSeverity.WARNING,
+                        code=code,
+                        message=f"Property '{path}' references view.params.{top_key} which is not defined",
+                        file_path=file_path,
+                        component_path=component_path,
+                        component_type=comp_type,
+                        suggestion=f"Add '{top_key}' to the view's params or fix the path",
+                    )
+                )
+
+    _EXPR_VIEW_REF_RE = re.compile(r"\{(view\.(?:custom|params)\.[^}]+)\}")
+
+    def _check_expr_view_refs(
+        self,
+        expression: str,
+        custom_keys: set[str],
+        params_keys: set[str],
+        file_path: str,
+        component_path: str,
+        comp_type: str,
+    ):
+        """Check {view.custom.X} and {view.params.X} refs in an expression."""
+        for m in self._EXPR_VIEW_REF_RE.finditer(expression):
+            ref = m.group(1)
+            self._check_view_prop_ref(
+                ref, custom_keys, params_keys, file_path,
+                component_path, comp_type,
+                code="EXPR_VIEW_PROP_NOT_FOUND",
+            )
+
     @staticmethod
     def _build_component_line_map(raw_text: str) -> dict[str, int]:
         """Map component names and types to 1-based line numbers in the raw JSON text.
@@ -1283,6 +1604,9 @@ class IgnitionPerspectiveLinter:
 
         # Check for unused custom/param properties (per-view)
         self._check_unused_properties(view_data, file_path)
+
+        # Validate binding paths against view structure (Tier 2 & 3)
+        self._validate_binding_paths(view_data, file_path)
 
         # Enrich line numbers for all issues generated during this lint
         line_map = self._build_component_line_map(raw_text)
