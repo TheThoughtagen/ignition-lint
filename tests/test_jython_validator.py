@@ -223,3 +223,73 @@ class TestTransformSyntax:
         issues = validate_with_context(script, "view.binding.transform[0]")
         codes = {i.code for i in issues}
         assert "JYTHON_SYNTAX_ERROR" not in codes
+
+
+class TestDuplicateDefinitions:
+    """Duplicate function/class definitions at the same scope are flagged."""
+
+    def test_duplicate_function_at_module_level(self):
+        script = "\tdef process(value):\n\t\treturn value\n\tdef process(value):\n\t\treturn value * 2"
+        issues = validate(script)
+        dupes = [i for i in issues if i.code == "JYTHON_DUPLICATE_DEFINITION"]
+        assert len(dupes) == 1
+        assert "process" in dupes[0].message
+        assert dupes[0].severity == LintSeverity.WARNING
+
+    def test_different_functions_no_warning(self):
+        script = "\tdef process(value):\n\t\treturn value\n\tdef transform(value):\n\t\treturn value * 2"
+        issues = validate(script)
+        dupes = [i for i in issues if i.code == "JYTHON_DUPLICATE_DEFINITION"]
+        assert len(dupes) == 0
+
+    def test_duplicate_method_inside_class(self):
+        script = (
+            "\tclass Handler:\n"
+            "\t\tdef handle(self):\n\t\t\tpass\n"
+            "\t\tdef handle(self):\n\t\t\tpass"
+        )
+        issues = validate(script)
+        dupes = [i for i in issues if i.code == "JYTHON_DUPLICATE_DEFINITION"]
+        assert len(dupes) == 1
+        assert "handle" in dupes[0].message
+        assert "class 'Handler'" in dupes[0].message
+
+    def test_same_name_different_classes_no_warning(self):
+        script = (
+            "\tclass A:\n\t\tdef run(self):\n\t\t\tpass\n"
+            "\tclass B:\n\t\tdef run(self):\n\t\t\tpass"
+        )
+        issues = validate(script)
+        dupes = [i for i in issues if i.code == "JYTHON_DUPLICATE_DEFINITION"]
+        assert len(dupes) == 0
+
+    def test_duplicate_class_definition(self):
+        script = "\tclass Foo:\n\t\tpass\n\tclass Foo:\n\t\tpass"
+        issues = validate(script)
+        dupes = [i for i in issues if i.code == "JYTHON_DUPLICATE_DEFINITION"]
+        assert len(dupes) == 1
+        assert "Class 'Foo'" in dupes[0].message
+
+    def test_duplicate_nested_function(self):
+        script = (
+            "\tdef outer():\n\t\tdef inner():\n\t\t\tpass\n\t\tdef inner():\n\t\t\tpass"
+        )
+        issues = validate(script)
+        dupes = [i for i in issues if i.code == "JYTHON_DUPLICATE_DEFINITION"]
+        assert len(dupes) == 1
+        assert "inner" in dupes[0].message
+        assert "function 'outer'" in dupes[0].message
+
+    def test_no_false_positive_on_syntax_error(self):
+        """Scripts that fail to parse should not trigger duplicate checks."""
+        script = "\tdef foo(\n"
+        issues = validate(script)
+        dupes = [i for i in issues if i.code == "JYTHON_DUPLICATE_DEFINITION"]
+        assert len(dupes) == 0
+
+    def test_suggestion_mentions_overwrite(self):
+        script = "\tdef calc():\n\t\tpass\n\tdef calc():\n\t\tpass"
+        issues = validate(script)
+        dupes = [i for i in issues if i.code == "JYTHON_DUPLICATE_DEFINITION"]
+        assert len(dupes) == 1
+        assert "silently overwrites" in dupes[0].suggestion

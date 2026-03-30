@@ -162,7 +162,9 @@ class JythonValidator:
             return []
 
         self._check_indentation(script_content, context, standalone=standalone)
-        self._check_syntax(script_content, context, standalone=standalone)
+        tree = self._check_syntax(script_content, context, standalone=standalone)
+        if tree is not None:
+            self._check_duplicate_definitions(tree, context)
         self._check_ignition_patterns(script_content, context)
         self._check_java_imports(script_content, context)
 
@@ -288,7 +290,7 @@ class JythonValidator:
 
     def _check_syntax(
         self, script: str, context: str, standalone: bool = False
-    ) -> None:
+    ) -> ast.Module | None:
         # Script transforms are stored with leading tab indentation inside an
         # implicit function body.  When triple-quoted strings break
         # textwrap.dedent() common-prefix detection, ast.parse() fails.
@@ -309,7 +311,7 @@ class JythonValidator:
 
         line_offset = -1 if is_transform else 0
         try:
-            ast.parse(prepared)
+            tree = ast.parse(prepared)
         except SyntaxError as exc:
             reported_line = max(1, (exc.lineno or 1) + line_offset)
             self.issues.append(
@@ -321,6 +323,7 @@ class JythonValidator:
                     line_number=reported_line,
                 )
             )
+            return None
         except Exception as exc:
             self.issues.append(
                 JythonIssue(
@@ -330,6 +333,69 @@ class JythonValidator:
                     suggestion="Check script for syntax issues.",
                 )
             )
+            return None
+        return tree
+
+    def _check_duplicate_definitions(self, tree: ast.Module, context: str) -> None:
+        """Flag functions or classes defined more than once at the same scope."""
+        line_offset = -1 if "transform[" in context else 0
+
+        def _check_scope(body: list[ast.stmt], scope_label: str) -> None:
+            seen: dict[str, int] = {}  # name -> first line number
+            for node in body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    name = node.name
+                    line = node.lineno + line_offset
+                    if name in seen:
+                        first_line = seen[name]
+                        self.issues.append(
+                            JythonIssue(
+                                severity=LintSeverity.WARNING,
+                                code="JYTHON_DUPLICATE_DEFINITION",
+                                message=(
+                                    f"Function '{name}' is defined again{scope_label}"
+                                    f" (first defined on line {first_line})"
+                                ),
+                                suggestion=(
+                                    f"Remove or rename one of the '{name}' definitions — "
+                                    f"the second silently overwrites the first."
+                                ),
+                                line_number=line,
+                            )
+                        )
+                    else:
+                        seen[name] = line
+                elif isinstance(node, ast.ClassDef):
+                    name = node.name
+                    line = node.lineno + line_offset
+                    if name in seen:
+                        first_line = seen[name]
+                        self.issues.append(
+                            JythonIssue(
+                                severity=LintSeverity.WARNING,
+                                code="JYTHON_DUPLICATE_DEFINITION",
+                                message=(
+                                    f"Class '{name}' is defined again{scope_label}"
+                                    f" (first defined on line {first_line})"
+                                ),
+                                suggestion=(
+                                    f"Remove or rename one of the '{name}' definitions — "
+                                    f"the second silently overwrites the first."
+                                ),
+                                line_number=line,
+                            )
+                        )
+                    else:
+                        seen[name] = line
+
+            # Recurse into class and function bodies
+            for node in body:
+                if isinstance(node, ast.ClassDef):
+                    _check_scope(node.body, f" in class '{node.name}'")
+                elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    _check_scope(node.body, f" in function '{node.name}'")
+
+        _check_scope(tree.body, "")
 
     def _check_ignition_patterns(self, script: str, context: str) -> None:
         if "localhost" in script or "127.0.0.1" in script:
