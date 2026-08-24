@@ -39,7 +39,11 @@ except ImportError:  # pragma: no cover - optional dependency
 from ..reporting import LintIssue, LintSeverity
 from ..schemas import schema_path_for as _schema_path_for
 from ..validators.expression import ExpressionValidator
-from ..validators.jython import JythonValidator
+from ..validators.jython import (
+    JythonValidator,
+    ScriptLineIndex,
+    anchor_script_issues,
+)
 
 
 class IgnitionPerspectiveLinter:
@@ -68,6 +72,7 @@ class IgnitionPerspectiveLinter:
         self.view_index: dict[str, dict] | None = None
         self._embedded_param_usage: dict[str, set[str]] = {}
         self.jython_validator = JythonValidator()
+        self._script_lines = ScriptLineIndex()
         self.expression_validator = ExpressionValidator()
         self.known_prop_names = self._extract_known_props()
         self._component_props = self._load_component_props()
@@ -914,6 +919,9 @@ class IgnitionPerspectiveLinter:
         validator_issues = self.jython_validator.validate_script(
             script_content, context=context
         )
+        # Validator line numbers are script-relative; move them onto the JSON
+        # line holding the script so diagnostics don't scatter across the file.
+        anchor_script_issues(validator_issues, self._script_lines, script_content)
         for issue in validator_issues:
             issue.file_path = file_path
             issue.component_path = f"{component_path}.{prop_name}"
@@ -1954,6 +1962,7 @@ class IgnitionPerspectiveLinter:
             with open(file_path, encoding="utf-8") as f:
                 raw_text = f.read()
             view_data = json.loads(raw_text)
+            self._script_lines = ScriptLineIndex(raw_text.splitlines())
         except json.JSONDecodeError as e:
             self.issues.append(
                 LintIssue(
