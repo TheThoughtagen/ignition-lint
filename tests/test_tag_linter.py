@@ -605,3 +605,29 @@ class TestEventScriptLineAnchoring:
         assert mixed
         assert mixed[0].metadata["script_line"] == "2"
         assert "script line 2" in mixed[0].message
+
+    def test_duplicate_scripts_anchor_to_their_own_line(self):
+        """A handler copied across sibling tags must not share one anchor."""
+        script = "\tif initialChange:\n\t    return\n\tx = 1\n"
+        tag = {
+            "name": "Root",
+            "tagType": "Folder",
+            "tags": [
+                {
+                    "name": f"Trigger{n}",
+                    "tagType": "AtomicTag",
+                    "dataType": "Boolean",
+                    "valueSource": "memory",
+                    "eventScripts": [{"eventid": "valueChanged", "script": script}],
+                }
+                for n in (1, 2)
+            ],
+        }
+
+        issues, raw_lines = self._lint_indented(tag)
+        anchors = sorted(
+            {i.line_number for i in issues if i.code.startswith("JYTHON_")}
+        )
+        assert len(anchors) == 2, "each copy should anchor to its own line"
+        for lineno in anchors:
+            assert '"script"' in raw_lines[lineno - 1]

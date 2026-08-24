@@ -331,3 +331,21 @@ class TestScriptLineIndex:
         assert issue.line_number == 17
         assert issue.metadata["script_line"] == "3"
         assert issue.message == "Mixed tabs and spaces on script line 3"
+
+    def test_duplicate_scripts_keep_separate_lines(self):
+        """Identical scripts on different lines must anchor separately."""
+        from ignition_lint.validators.jython import ScriptLineIndex
+
+        script = "\tx = 1"
+        lines = [
+            "{",
+            '  "script": "\\tx \\u003d 1",',
+            '  "other": 1,',
+            '  "script": "\\tx \\u003d 1"',
+            "}",
+        ]
+        index = ScriptLineIndex(lines)
+        assert index.line_for(script) == 2
+        assert index.line_for(script) == 4
+        # Exhausted — reuse the last occurrence rather than losing the anchor.
+        assert index.line_for(script) == 4

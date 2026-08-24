@@ -146,22 +146,39 @@ class ScriptLineIndex:
     for ``=``), so candidate strings are decoded rather than matched as escaped
     text.  The index is built on first use and only over lines carrying a
     script-bearing key, so files without scripts cost nothing.
+
+    The same script text can appear more than once in a file (a handler copied
+    across sibling tags, say).  Every occurrence is kept, and repeated lookups
+    of one script walk them in order, so each occurrence anchors to its own
+    line instead of all of them collapsing onto the first.
     """
 
     def __init__(self, raw_lines: list[str] | None = None) -> None:
         self._raw_lines = raw_lines or []
-        self._index: dict[str, int] | None = None
+        self._index: dict[str, list[int]] | None = None
+        self._consumed: dict[str, int] = {}
 
     def line_for(self, script_content: str) -> int | None:
-        """Return the line holding *script_content*, or None if not found."""
+        """Return the line holding the next occurrence of *script_content*.
+
+        Linters walk a document in file order, so the Nth lookup of a given
+        script resolves to its Nth occurrence.  Once every occurrence has been
+        handed out the last one is reused rather than returning None.
+        """
         if not script_content:
             return None
         if self._index is None:
             self._index = self._build()
-        return self._index.get(script_content)
+        linenos = self._index.get(script_content)
+        if not linenos:
+            return None
+        position = self._consumed.get(script_content, 0)
+        if position < len(linenos) - 1:
+            self._consumed[script_content] = position + 1
+        return linenos[position]
 
-    def _build(self) -> dict[str, int]:
-        index: dict[str, int] = {}
+    def _build(self) -> dict[str, list[int]]:
+        index: dict[str, list[int]] = {}
         for lineno, line in enumerate(self._raw_lines, 1):
             if not _SCRIPT_KEY_RE.search(line):
                 continue
@@ -171,7 +188,7 @@ class ScriptLineIndex:
                 except ValueError:
                     continue
                 if value.strip():
-                    index.setdefault(value, lineno)
+                    index.setdefault(value, []).append(lineno)
         return index
 
 
