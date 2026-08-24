@@ -25,7 +25,11 @@ except ImportError:  # pragma: no cover - optional dependency
 
 from ..reporting import LintIssue, LintSeverity
 from ..schemas import tag_schema_path_for as _tag_schema_path_for
-from ..validators.jython import JythonValidator
+from ..validators.jython import (
+    JythonValidator,
+    ScriptLineIndex,
+    anchor_script_issues,
+)
 
 # Keys that are present on every tagType (shared base)
 _SHARED_TAG_KEYS = frozenset(
@@ -62,6 +66,7 @@ class IgnitionTagLinter:
             "tag_types": set(),
         }
         self.jython_validator = JythonValidator()
+        self._script_lines = ScriptLineIndex()
         self.known_atomic_props = self._extract_known_atomic_props()
 
     # ------------------------------------------------------------------
@@ -144,6 +149,7 @@ class IgnitionTagLinter:
             )
             return False
 
+        self._script_lines = ScriptLineIndex(raw_text.splitlines())
         line_map = self._build_tag_line_map(raw_text)
         issues_start = len(self.issues)
 
@@ -534,6 +540,12 @@ class IgnitionTagLinter:
 
         validator_issues = self.jython_validator.validate_script(
             script_content, context=context
+        )
+        tag_name = tag_path.rsplit("/", 1)[-1] if tag_path else ""
+        # Validator line numbers are script-relative; move them onto the JSON
+        # line holding the script so diagnostics don't scatter across the file.
+        anchor_script_issues(
+            validator_issues, self._script_lines, script_content, tag_name
         )
         for issue in validator_issues:
             issue.file_path = file_path

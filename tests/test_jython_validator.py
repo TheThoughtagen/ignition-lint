@@ -293,3 +293,41 @@ class TestDuplicateDefinitions:
         dupes = [i for i in issues if i.code == "JYTHON_DUPLICATE_DEFINITION"]
         assert len(dupes) == 1
         assert "silently overwrites" in dupes[0].suggestion
+
+
+class TestScriptLineIndex:
+    """Anchoring inline scripts to the JSON line that holds them."""
+
+    def test_indexes_standard_escaping(self):
+        from ignition_lint.validators.jython import ScriptLineIndex
+
+        lines = ["{", '  "script": "\\tx = 1\\n\\ty = 2"', "}"]
+        assert ScriptLineIndex(lines).line_for("\tx = 1\n\ty = 2") == 2
+
+    def test_indexes_ignition_unicode_escaping(self):
+        """Ignition writes '=' as \\u003d and "'" as \\u0027."""
+        from ignition_lint.validators.jython import ScriptLineIndex
+
+        lines = ["{", '  "script": "\\tx \\u003d \\u0027a\\u0027"', "}"]
+        assert ScriptLineIndex(lines).line_for("\tx = 'a'") == 2
+
+    def test_anchor_moves_line_number_to_metadata(self):
+        from ignition_lint.reporting import LintIssue, LintSeverity
+        from ignition_lint.validators.jython import (
+            ScriptLineIndex,
+            anchor_script_issues,
+        )
+
+        issue = LintIssue(
+            severity=LintSeverity.WARNING,
+            code="JYTHON_MIXED_INDENTATION",
+            message="Mixed tabs and spaces on line 3",
+            file_path="view.json",
+            component_path="root",
+            line_number=3,
+        )
+        index = ScriptLineIndex(["x"] * 16 + ['  "script": "\\tpass"'])
+        anchor_script_issues([issue], index, "\tpass")
+        assert issue.line_number == 17
+        assert issue.metadata["script_line"] == "3"
+        assert issue.message == "Mixed tabs and spaces on script line 3"

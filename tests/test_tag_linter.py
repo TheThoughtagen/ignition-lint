@@ -546,3 +546,62 @@ class TestUdtInstanceContextAwareness:
         issues = _lint_tag(tag)
         assert "MISSING_DATA_TYPE" not in _codes(issues)
         assert "MISSING_VALUE_SOURCE" not in _codes(issues)
+
+
+# ---------------------------------------------------------------------------
+# TestEventScriptLineAnchoring
+# ---------------------------------------------------------------------------
+
+
+class TestEventScriptLineAnchoring:
+    """Script-relative line numbers must not be reported as JSON file lines."""
+
+    _TAG = {
+        "name": "Root",
+        "tagType": "Folder",
+        "tags": [
+            {
+                "name": "Trigger",
+                "tagType": "AtomicTag",
+                "dataType": "Boolean",
+                "valueSource": "memory",
+                "eventScripts": [
+                    {
+                        "eventid": "valueChanged",
+                        "script": "\tif initialChange:\n\t    return\n\tx = 1\n",
+                    }
+                ],
+            }
+        ],
+    }
+
+    @staticmethod
+    def _lint_indented(tag_data):
+        linter = IgnitionTagLinter()
+        tmpdir = tempfile.mkdtemp()
+        path = os.path.join(tmpdir, "tags.json")
+        with open(path, "w") as f:
+            json.dump(tag_data, f, indent=2)
+        try:
+            linter.lint_file(path)
+            raw_lines = open(path).read().splitlines()
+        finally:
+            os.unlink(path)
+            os.rmdir(tmpdir)
+        return linter.issues, raw_lines
+
+    def test_script_issues_anchor_to_script_line(self):
+        issues, raw_lines = self._lint_indented(self._TAG)
+        jython = [i for i in issues if i.code.startswith("JYTHON_")]
+        assert jython, "expected at least one embedded-script issue"
+
+        for issue in jython:
+            assert issue.line_number is not None
+            assert '"script"' in raw_lines[issue.line_number - 1]
+
+    def test_script_relative_line_kept_in_metadata(self):
+        issues, _ = self._lint_indented(self._TAG)
+        mixed = _issues_with_code(issues, "JYTHON_MIXED_INDENTATION")
+        assert mixed
+        assert mixed[0].metadata["script_line"] == "2"
+        assert "script line 2" in mixed[0].message

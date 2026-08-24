@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 import textwrap
 from dataclasses import dataclass
@@ -128,6 +129,80 @@ def _preprocess_py2(source: str) -> str:
         flags=re.MULTILINE,
     )
     return source
+
+
+_JSON_STRING_RE = re.compile(r'"(?:[^"\\]|\\.)*"')
+
+# Keys whose value can hold an inline script.  Used to skip the ~99% of lines
+# in a large view/tag file that cannot possibly contain one.
+_SCRIPT_KEY_RE = re.compile(r'"(?:script|eventScript|code)"\s*:')
+
+
+class ScriptLineIndex:
+    """Maps inline script text to the 1-based JSON line that holds it.
+
+    An inline script is a single escaped JSON string, so it lives entirely on
+    one physical line.  Escaping varies by writer (Ignition emits ``\\u003d``
+    for ``=``), so candidate strings are decoded rather than matched as escaped
+    text.  The index is built on first use and only over lines carrying a
+    script-bearing key, so files without scripts cost nothing.
+    """
+
+    def __init__(self, raw_lines: list[str] | None = None) -> None:
+        self._raw_lines = raw_lines or []
+        self._index: dict[str, int] | None = None
+
+    def line_for(self, script_content: str) -> int | None:
+        """Return the line holding *script_content*, or None if not found."""
+        if not script_content:
+            return None
+        if self._index is None:
+            self._index = self._build()
+        return self._index.get(script_content)
+
+    def _build(self) -> dict[str, int]:
+        index: dict[str, int] = {}
+        for lineno, line in enumerate(self._raw_lines, 1):
+            if not _SCRIPT_KEY_RE.search(line):
+                continue
+            for match in _JSON_STRING_RE.finditer(line):
+                try:
+                    value = json.loads(match.group(0))
+                except ValueError:
+                    continue
+                if value.strip():
+                    index.setdefault(value, lineno)
+        return index
+
+
+def anchor_script_issues(
+    issues: list[LintIssue],
+    line_index: ScriptLineIndex,
+    script_content: str,
+    owner_name: str | None = None,
+) -> None:
+    """Re-anchor script-relative line numbers onto the containing JSON file.
+
+    ``JythonValidator`` numbers lines relative to the script itself.  Reported
+    verbatim against the JSON file those numbers point at unrelated lines, so
+    move them into ``metadata['script_line']`` and anchor each issue to the JSON
+    line that actually holds the script.
+    """
+    anchor = line_index.line_for(script_content)
+    for issue in issues:
+        if issue.line_number is not None:
+            script_line = issue.line_number
+            issue.metadata["script_line"] = str(script_line)
+            # Disambiguate: the number refers to the script, not the JSON file.
+            pattern = re.compile(rf"\bline {script_line}\b")
+            issue.message = pattern.sub(f"script line {script_line}", issue.message)
+            if issue.suggestion:
+                issue.suggestion = pattern.sub(
+                    f"script line {script_line}", issue.suggestion
+                )
+        issue.line_number = anchor
+        if anchor is None and owner_name:
+            issue.metadata.setdefault("tag_name", owner_name)
 
 
 @dataclass
