@@ -1,117 +1,165 @@
-import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
-import type * as Preset from '@docusaurus/preset-classic';
-
 const config: Config = {
-  title: 'ignition-lint',
-  tagline: 'Lint your Ignition projects like a pro',
-  favicon: 'img/favicon.ico',
-
-  future: {
-    v4: true,
+  "title": "ignition-lint",
+  "tagline": "Static checks for Perspective resources, expressions, naming, and Python scripts.",
+  "favicon": "img/favicon.svg",
+  "url": "https://thethoughtagen.github.io",
+  "baseUrl": "/ignition-lint/",
+  "trailingSlash": true,
+  "organizationName": "TheThoughtagen",
+  "projectName": "ignition-lint",
+  "onBrokenLinks": "throw",
+  "markdown": {
+    "format": "md",
+    "hooks": {
+      "onBrokenMarkdownLinks": "throw"
+    }
   },
-
-  url: 'https://TheThoughtagen.github.io',
-  baseUrl: '/ignition-lint/',
-
-  organizationName: 'TheThoughtagen',
-  projectName: 'ignition-lint',
-
-  onBrokenLinks: 'warn',
-
-  markdown: {
-    format: 'md',
-    hooks: {
-      onBrokenMarkdownLinks: 'warn',
-    },
-  },
-
-  i18n: {
-    defaultLocale: 'en',
-    locales: ['en'],
-  },
-
-  presets: [
+  "presets": [
     [
-      'classic',
+      "classic",
       {
-        docs: {
-          path: '../docs',
-          sidebarPath: './sidebars.ts',
-          editUrl:
-            'https://github.com/TheThoughtagen/ignition-lint/tree/main/docs/',
+        "docs": {
+          "path": "../docs",
+          "sidebarPath": "./sidebars.ts",
+          "editUrl": "https://github.com/TheThoughtagen/ignition-lint/edit/main/docs/",
+          "exclude": [
+            "superpowers/**",
+            "*_SUMMARY.md",
+            "*_REPORT.md",
+            "*-STRATEGY.md",
+            "*_COMPLETE.md",
+            "AI_DEVELOPMENT_RULES.md",
+            "BINDING_PATTERNS_ANALYSIS.md",
+            "GETTING_STARTED.md",
+            "LINTER_USAGE.md",
+            "SUPPRESSION.md",
+            "PROJECT_OVERVIEW.md",
+            "IGNITION-LINTER-INTEGRATION.md"
+          ]
         },
-        blog: false,
-        theme: {
-          customCss: './src/css/custom.css',
-        },
-      } satisfies Preset.Options,
-    ],
+        "blog": false,
+        "theme": {
+          "customCss": "./src/css/custom.css"
+        }
+      }
+    ]
   ],
-
-  themeConfig: {
-    colorMode: {
-      defaultMode: 'dark',
-      disableSwitch: false,
-      respectPrefersColorScheme: false,
+  "themeConfig": {
+    "colorMode": {
+      "defaultMode": "dark",
+      "respectPrefersColorScheme": true
     },
-    navbar: {
-      title: 'ignition-lint',
-      items: [
+    "navbar": {
+      "title": "ignition-lint",
+      "items": [
         {
-          type: 'docSidebar',
-          sidebarId: 'docsSidebar',
-          position: 'left',
-          label: 'Docs',
+          "to": "/docs/getting-started/installation",
+          "label": "Get started",
+          "position": "left"
         },
         {
-          href: 'https://github.com/TheThoughtagen/ignition-lint',
-          label: 'GitHub',
-          position: 'right',
-        },
-      ],
-    },
-    footer: {
-      style: 'dark',
-      links: [
-        {
-          title: 'Documentation',
-          items: [
-            {label: 'Getting Started', to: '/docs/getting-started/installation'},
-            {label: 'CLI Reference', to: '/docs/guides/cli-reference'},
-            {label: 'Suppression', to: '/docs/guides/suppression'},
-          ],
+          "type": "docSidebar",
+          "sidebarId": "docsSidebar",
+          "label": "Docs",
+          "position": "left"
         },
         {
-          title: 'Integration',
-          items: [
-            {label: 'GitHub Actions', to: '/docs/integration/github-actions'},
-            {label: 'Pre-commit', to: '/docs/integration/pre-commit'},
-            {label: 'MCP Server', to: '/docs/guides/mcp-server'},
-          ],
-        },
-        {
-          title: 'More',
-          items: [
+          "label": "Tools",
+          "type": "dropdown",
+          "items": [
             {
-              label: 'GitHub',
-              href: 'https://github.com/TheThoughtagen/ignition-lint',
+              "label": "Ignition Dev Tools",
+              "href": "https://thethoughtagen.github.io/ignition-ide-plugins/"
             },
             {
-              label: 'Credits',
-              to: '/docs/credits',
+              "label": "ignition-cli",
+              "href": "https://thethoughtagen.github.io/ignition-cli/"
             },
+            {
+              "label": "ignition-mcp",
+              "href": "https://whiskeyhouse.github.io/ignition-mcp/"
+            },
+            {
+              "label": "Ignition Git Module",
+              "href": "https://whiskeyhouse.github.io/ignition-git-module/"
+            }
           ],
+          "position": "left"
         },
+        {
+          "href": "https://github.com/TheThoughtagen/ignition-lint/releases",
+          "label": "Releases",
+          "position": "right"
+        },
+        {
+          "href": "https://github.com/TheThoughtagen/ignition-lint",
+          "label": "GitHub",
+          "position": "right"
+        }
+      ]
+    },
+    "footer": {
+      "style": "dark",
+      "links": [
+        {
+          "title": "Documentation",
+          "items": [
+            {
+              "label": "Installation",
+              "to": "/docs/getting-started/installation"
+            },
+            {
+              "label": "First steps",
+              "to": "/docs/getting-started/quickstart"
+            },
+            {
+              "label": "Report an issue",
+              "href": "https://github.com/TheThoughtagen/ignition-lint/issues"
+            }
+          ]
+        },
+        {
+          "title": "Related tools",
+          "items": [
+            {
+              "label": "Ignition Dev Tools",
+              "href": "https://thethoughtagen.github.io/ignition-ide-plugins/"
+            },
+            {
+              "label": "ignition-cli",
+              "href": "https://thethoughtagen.github.io/ignition-cli/"
+            },
+            {
+              "label": "ignition-mcp",
+              "href": "https://whiskeyhouse.github.io/ignition-mcp/"
+            },
+            {
+              "label": "Ignition Git Module",
+              "href": "https://whiskeyhouse.github.io/ignition-git-module/"
+            }
+          ]
+        },
+        {
+          "title": "Patrick Mannion",
+          "items": [
+            {
+              "label": "FIELDNOTES",
+              "href": "https://awake-iris-z6ww.here.now/"
+            },
+            {
+              "label": "LinkedIn",
+              "href": "https://www.linkedin.com/in/mannionpatrick/"
+            },
+            {
+              "label": "X",
+              "href": "https://x.com/__pattym__"
+            }
+          ]
+        }
       ],
-      copyright: `Copyright &copy; ${new Date().getFullYear()} Whiskey House Labs. Built with Docusaurus.`,
-    },
-    prism: {
-      theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
-      additionalLanguages: ['bash', 'json', 'yaml', 'python'],
-    },
-  } satisfies Preset.ThemeConfig,
+      "copyright": "Community tooling for Ignition. See each repository for its license and contributors."
+    }
+  }
 };
-
 export default config;

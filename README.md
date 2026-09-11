@@ -1,5 +1,7 @@
 # ignition-lint
 
+[Documentation](https://thethoughtagen.github.io/ignition-lint/) · [Releases](https://github.com/TheThoughtagen/ignition-lint/releases) · [Issues](https://github.com/TheThoughtagen/ignition-lint/issues)
+
 [![PyPI](https://img.shields.io/pypi/v/ignition-lint-toolkit)](https://pypi.org/project/ignition-lint-toolkit/)
 [![Downloads](https://img.shields.io/pypi/dm/ignition-lint-toolkit)](https://pypi.org/project/ignition-lint-toolkit/)
 [![Python](https://img.shields.io/pypi/pyversions/ignition-lint-toolkit)](https://pypi.org/project/ignition-lint-toolkit/)
@@ -9,7 +11,7 @@
 
 **A comprehensive linting toolkit for [Ignition SCADA](https://inductiveautomation.com/) projects** that catches errors before runtime, enforces best practices, and maintains code quality across your industrial automation systems.
 
-> This project extends the foundational work by [Eric Knorr](https://github.com/ia-eknorr) in [ia-eknorr/ignition-lint](https://github.com/ia-eknorr/ignition-lint), which pioneered naming convention validation for Ignition view.json files. See [credits](https://TheThoughtagen.github.io/ignition-lint/credits) for the full story.
+> This project extends the foundational work by [Eric Knorr](https://github.com/ia-eknorr) in [ia-eknorr/ignition-lint](https://github.com/ia-eknorr/ignition-lint), which pioneered naming convention validation for Ignition view.json files. See [credits](https://thethoughtagen.github.io/ignition-lint/docs/credits/) for the full story.
 
 ## Why ignition-lint?
 
@@ -134,7 +136,7 @@ Three mechanisms let you control which rules fire and where:
 2. **`.ignition-lintignore` file** -- gitignore-style patterns with optional rule scoping per path
 3. **Inline comments** -- `# ignition-lint: disable=CODE` directives in Python scripts
 
-See the [suppression guide](https://TheThoughtagen.github.io/ignition-lint/guides/suppression) for the full reference.
+See the [suppression guide](https://thethoughtagen.github.io/ignition-lint/docs/guides/suppression) for the full reference.
 
 ## Integrations
 
@@ -185,7 +187,7 @@ pip install "ignition-lint-toolkit[mcp]"
 ignition-lint-server
 ```
 
-[MCP integration guide →](https://TheThoughtagen.github.io/ignition-lint/guides/mcp-server)
+[MCP integration guide →](https://thethoughtagen.github.io/ignition-lint/docs/guides/mcp-server)
 
 ### 🛠️ Editor integration
 
@@ -209,9 +211,9 @@ Full documentation at [TheThoughtagen.github.io/ignition-lint](https://TheThough
 
 - [Installation](https://TheThoughtagen.github.io/ignition-lint/getting-started/installation)
 - [Basic usage](https://TheThoughtagen.github.io/ignition-lint/getting-started/basic-usage)
-- [CLI reference](https://TheThoughtagen.github.io/ignition-lint/guides/cli-reference)
-- [Rule codes](https://TheThoughtagen.github.io/ignition-lint/guides/rule-codes)
-- [Suppression guide](https://TheThoughtagen.github.io/ignition-lint/guides/suppression)
+- [CLI reference](https://thethoughtagen.github.io/ignition-lint/docs/guides/cli-reference)
+- [Rule codes](https://thethoughtagen.github.io/ignition-lint/docs/guides/rule-codes)
+- [Suppression guide](https://thethoughtagen.github.io/ignition-lint/docs/guides/suppression)
 - [GitHub Actions](https://TheThoughtagen.github.io/ignition-lint/integration/github-actions)
 
 ## Contributing
