@@ -55,31 +55,14 @@ ignition-lint --help
 
 You should see the CLI help output with available options and commands.
 
-## IDE Integration
+## Editor integration
 
-### VS Code
+For VS Code JSON schema validation, locate the installed schema:
 
-If you cloned the repository, add the Ignition component schema to your `settings.json` for inline validation:
-
-```json
-{
-  "json.schemas": [
-    {
-      "fileMatch": ["**/perspective/views/**/view.json"],
-      "url": "./schemas/core-ia-components-schema-robust.json"
-    }
-  ]
-}
-```
-
-For pip-installed users, find the schema path with:
-
-```bash
+```sh
 python -c "from ignition_lint.schemas import schema_path_for; print(schema_path_for('robust'))"
 ```
 
-Then use the printed absolute path as the `"url"` value.
+Use the printed path in your editor's JSON schema settings. See [editor integration](../integration/editor-integration.md).
 
-## Next Steps
-
-- [Basic Usage](./basic-usage.md) — Lint your first project
+Continue with [your first check](quickstart.md).

@@ -1,41 +1,14 @@
-# Website
+# ignition-lint documentation site
 
-This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
+Install Node.js 22, then run these commands from `website/`:
 
-## Installation
-
-```bash
-yarn
+```sh
+npm ci
+npm run build
+npm run typecheck
+npm start
 ```
 
-## Local Development
+The site uses Docusaurus. Edit user guides in `docs/`, navigation in `website/sidebars.ts`, and the landing page in `website/src/pages/index.tsx`. Internal design records remain in the repository and are excluded from the published site.
 
-```bash
-yarn start
-```
-
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
-
-## Build
-
-```bash
-yarn build
-```
-
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
-
-## Deployment
-
-Using SSH:
-
-```bash
-USE_SSH=true yarn deploy
-```
-
-Not using SSH:
-
-```bash
-GIT_USER=<Your GitHub username> yarn deploy
-```
-
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+Pull requests build the docs and check internal links. Main commits deploy to https://thethoughtagen.github.io/ignition-lint/ through GitHub Pages. Set the repository's Pages build source to GitHub Actions before its first deployment.
