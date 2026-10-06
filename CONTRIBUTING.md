@@ -95,6 +95,22 @@ website/                 # Docusaurus site
 4. Add tests covering the new rule.
 5. Document the rule code in `docs/guides/rule-codes.md`.
 
+## Updating the Perspective component list
+
+The list of valid component types (`type` in `core-ia-components-schema-robust.json`) and each component's props (`component-props.json`) are generated from the component definitions Ignition ships in its modules. When a new Ignition version adds components, regenerate them from that version's Docker image (needs Docker):
+
+```bash
+uv run python -m ignition_lint.schemas.generate --image inductiveautomation/ignition:8.3.9
+```
+
+Or from an installed gateway's modules folder:
+
+```bash
+uv run python -m ignition_lint.schemas.generate --source /usr/local/bin/ignition/user-lib/modules --ignition-version 8.3.9
+```
+
+Types and props already listed are kept, so views from older Ignition versions still pass. Add `--prune` to keep only what the given version ships. Commit both schema files.
+
 ## Reporting bugs
 
 Open a [GitHub issue](https://github.com/TheThoughtagen/ignition-lint/issues) with:
