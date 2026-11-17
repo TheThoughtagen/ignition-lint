@@ -12,6 +12,7 @@ Every issue reported by ignition-lint has a rule code. Use these codes with `--i
 | Code | Severity | Description |
 |---|---|---|
 | `SCHEMA_VALIDATION` | ERROR | Component structure doesn't match the expected schema |
+| `UNKNOWN_COMPONENT_TYPE` | WARNING | Component `type` is not in the list of Perspective components (a typo, or a component newer than the list). The rest of the component is still checked |
 | `SCHEMA_VALIDATION_SKIPPED` | WARNING | Schema validation skipped (`jsonschema` package not installed) |
 | `INVALID_JSON` | ERROR | File contains invalid JSON |
 | `FILE_READ_ERROR` | ERROR | Could not read view file from disk |
