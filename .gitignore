@@ -337,3 +337,8 @@ docs/build/
 !IGNITION_SCRIPT_LINTING_REPORT.md
 
 !tests/test_*.py
+
+# Documentation site
+/website/node_modules/
+/website/build/
+/website/.docusaurus/

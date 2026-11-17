@@ -93,11 +93,21 @@ def lint_perspective_files(
     view_files: list[Path],
     schema_mode: str,
     component_type: str | None,
+    index_root: Path | None = None,
 ) -> LintReport:
-    """Lint an explicit list of view.json files."""
+    """Lint an explicit list of view.json files.
+
+    `index_root` enables the cross-view checks on this path too. Without it the
+    per-file loop has no project context, and rules like EMBED_VIEW_NOT_FOUND
+    silently do nothing -- which is indistinguishable from a clean run. The
+    linter walks up from this path to find the views root, so a narrowed
+    --target still gets a complete index.
+    """
     report = LintReport()
     schema_path = schema_path_for(schema_mode)
     linter = IgnitionPerspectiveLinter(str(schema_path))
+    if index_root is not None:
+        linter.build_view_index(str(index_root))
     for vf in view_files:
         linter.lint_file(str(vf), target_component_type=component_type)
     report.extend(linter.issues)
@@ -136,7 +146,11 @@ def lint_target_directory(
     # Perspective checks on any view.json found
     if "perspective" in checks and view_files:
         print(f"📁 Found {len(view_files)} view.json files", file=sys.stderr)
-        report.merge(lint_perspective_files(view_files, schema_mode, component_type))
+        report.merge(
+            lint_perspective_files(
+                view_files, schema_mode, component_type, index_root=target
+            )
+        )
 
     # Naming checks on any view.json found
     if "naming" in checks and view_files:

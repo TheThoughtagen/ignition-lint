@@ -9,58 +9,93 @@
   "properties": {
     "type": {
       "type": "string",
-      "pattern": "^ia\\.(container|display|input|chart|navigation)\\.",
+      "pattern": "^ia\\.(chart|container|display|input|navigation|reporting|shapes|symbol)\\.",
       "description": "Component type must start with ia. followed by category",
       "enum": [
+        "ia.chart.chartrangeselector",
         "ia.chart.gauge",
         "ia.chart.pie",
         "ia.chart.powerchart",
+        "ia.chart.simple-gauge",
         "ia.chart.timeseries",
         "ia.chart.xy",
         "ia.container.breakpt",
         "ia.container.column",
         "ia.container.coord",
+        "ia.container.drawing",
         "ia.container.flex",
+        "ia.container.split",
         "ia.container.tab",
+        "ia.display.accordion",
         "ia.display.alarmjournaltable",
         "ia.display.alarmstatustable",
+        "ia.display.audio",
         "ia.display.barcode",
         "ia.display.carousel",
+        "ia.display.cylindrical-tank",
+        "ia.display.dashboard",
         "ia.display.equipmentschedule",
         "ia.display.flex-repeater",
+        "ia.display.google-map",
         "ia.display.icon",
         "ia.display.iframe",
         "ia.display.image",
         "ia.display.label",
         "ia.display.led-display",
+        "ia.display.linear-scale",
+        "ia.display.map",
         "ia.display.markdown",
         "ia.display.moving-analog-indicator",
+        "ia.display.pdf-viewer",
         "ia.display.progress",
+        "ia.display.sparkline",
         "ia.display.table",
         "ia.display.tag-browse-tree",
+        "ia.display.thermometer",
         "ia.display.tree",
         "ia.display.video-player",
         "ia.display.view",
         "ia.display.viewcanvas",
+        "ia.input.barcodescannerinput",
         "ia.input.button",
         "ia.input.checkbox",
         "ia.input.date-time-input",
+        "ia.input.date-time-picker",
         "ia.input.dropdown",
         "ia.input.fileupload",
+        "ia.input.form",
         "ia.input.multi-state-button",
         "ia.input.numeric-entry-field",
         "ia.input.oneshotbutton",
+        "ia.input.password-field",
         "ia.input.radio-group",
         "ia.input.signature-pad",
+        "ia.input.slider",
         "ia.input.text-area",
         "ia.input.text-field",
         "ia.input.toggle-switch",
         "ia.navigation.horizontalmenu",
+        "ia.navigation.link",
         "ia.navigation.menutree",
+        "ia.navigation.navlinks",
+        "ia.reporting.report-viewer",
+        "ia.shapes.circle",
+        "ia.shapes.ellipse",
+        "ia.shapes.group",
+        "ia.shapes.line",
+        "ia.shapes.path",
+        "ia.shapes.polygon",
+        "ia.shapes.polyline",
+        "ia.shapes.rect",
         "ia.shapes.svg",
+        "ia.shapes.text",
+        "ia.symbol.motor",
+        "ia.symbol.pump",
         "ia.symbol.sensor",
-        "ia.symbol.valve"
-      ]
+        "ia.symbol.valve",
+        "ia.symbol.vessel"
+      ],
+      "$comment": "Generated from Ignition 8.3.9 (Perspective 3.3.9, Reporting 7.3.9) by `python -m ignition_lint.schemas.generate`, keeping types listed before. Regenerate rather than editing by hand."
     },
     "meta": {
       "type": "object",
@@ -502,7 +537,7 @@
                         "type": "string",
                         "enum": [
                           "map",
-                          "script", 
+                          "script",
                           "expression",
                           "format"
                         ],
@@ -516,7 +551,7 @@
                         "description": "Jython code for script transforms"
                       },
                       "expression": {
-                        "type": "string", 
+                        "type": "string",
                         "description": "Expression for expression transforms"
                       },
                       "mappings": {
@@ -525,11 +560,22 @@
                       },
                       "inputType": {
                         "type": "string",
-                        "enum": ["scalar", "array", "dataset", "range"]
+                        "enum": [
+                          "scalar",
+                          "array",
+                          "dataset",
+                          "range"
+                        ]
                       },
                       "outputType": {
                         "type": "string",
-                        "enum": ["scalar", "color", "object", "expression", "style-list"]
+                        "enum": [
+                          "scalar",
+                          "color",
+                          "object",
+                          "expression",
+                          "style-list"
+                        ]
                       },
                       "fallback": {
                         "description": "Fallback value for map transforms"

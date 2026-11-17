@@ -24,6 +24,8 @@ from typing import Any
 
 try:
     from jsonschema import ValidationError, validate
+    from jsonschema.exceptions import best_match
+    from jsonschema.validators import validator_for
 
     JSONSCHEMA_AVAILABLE = True
 except ImportError:  # pragma: no cover - optional dependency
@@ -39,7 +41,11 @@ except ImportError:  # pragma: no cover - optional dependency
 from ..reporting import LintIssue, LintSeverity
 from ..schemas import schema_path_for as _schema_path_for
 from ..validators.expression import ExpressionValidator
-from ..validators.jython import JythonValidator
+from ..validators.jython import (
+    JythonValidator,
+    ScriptLineIndex,
+    anchor_script_issues,
+)
 
 
 class IgnitionPerspectiveLinter:
@@ -53,6 +59,7 @@ class IgnitionPerspectiveLinter:
         self.schema_path = schema_path
         self.jsonschema_available = JSONSCHEMA_AVAILABLE and validate is not None
         self.schema = self._load_schema(schema_path)
+        self._schema_validator = None
         self.issues: list[LintIssue] = []
         self.component_stats = {
             "total_files": 0,
@@ -62,7 +69,13 @@ class IgnitionPerspectiveLinter:
             "component_types": set(),
         }
         self._missing_schema_files: set[str] = set()
+        # Cross-view state. Populated by build_view_index() during lint_project;
+        # stays None for single-file runs, where cross-view checks cannot be
+        # made and are skipped rather than guessed at.
+        self.view_index: dict[str, dict] | None = None
+        self._embedded_param_usage: dict[str, set[str]] = {}
         self.jython_validator = JythonValidator()
+        self._script_lines = ScriptLineIndex()
         self.expression_validator = ExpressionValidator()
         self.known_prop_names = self._extract_known_props()
         self._component_props = self._load_component_props()
@@ -228,7 +241,11 @@ class IgnitionPerspectiveLinter:
         return components
 
     def validate_component_schema(
-        self, component: dict, file_path: str, component_path: str
+        self,
+        component: dict,
+        file_path: str,
+        component_path: str,
+        target_component_type: str | None = None,
     ) -> bool:
         """Validate a component against the schema."""
         if not self.jsonschema_available or validate is None:
@@ -247,24 +264,102 @@ class IgnitionPerspectiveLinter:
                 )
             return True
 
-        try:
-            validate(instance=component, schema=self.schema)
-            return True
-        except ValidationError as e:
+        if self._schema_validator is None:
+            validator_cls = validator_for(self.schema)
+            validator_cls.check_schema(self.schema)
+            self._schema_validator = validator_cls(self.schema)
+
+        errors = []
+        unknown: dict[str, Any] = {}
+        for error in self._schema_validator.iter_errors(component):
+            if not self._is_component_type_error(error):
+                errors.append(error)
+                continue
+            nesting = list(error.absolute_path)[:-1]
+            # A nested type is reported by the nearest component on its path
+            # that gets its own lint pass; report it here only if none does.
+            if self._linted_on_path(component, nesting, target_component_type):
+                continue
+            unknown_path = component_path + "".join(
+                f".children[{index}]" for index in nesting[1::2]
+            )
+            unknown[unknown_path] = error.instance
+
+        for unknown_path, comp_type in unknown.items():
             self.issues.append(
                 LintIssue(
-                    severity=LintSeverity.ERROR,
-                    code="SCHEMA_VALIDATION",
-                    message=f"Schema validation failed: {e.message}",
+                    severity=LintSeverity.WARNING,
+                    code="UNKNOWN_COMPONENT_TYPE",
+                    message=f"Unknown component type '{comp_type}'",
                     file_path=file_path,
-                    component_path=component_path,
-                    component_type=component.get("type", "unknown"),
-                    suggestion=f"Path: {'.'.join(map(str, e.absolute_path))}"
-                    if e.absolute_path
-                    else None,
+                    component_path=unknown_path,
+                    component_type=comp_type,
+                    suggestion="Check the type for a typo. If it is a component "
+                    "from a newer Ignition version, regenerate the component "
+                    "list (python -m ignition_lint.schemas.generate).",
                 )
             )
+
+        if not errors:
+            return True
+        e = best_match(errors)
+        self.issues.append(
+            LintIssue(
+                severity=LintSeverity.ERROR,
+                code="SCHEMA_VALIDATION",
+                message=f"Schema validation failed: {e.message}",
+                file_path=file_path,
+                component_path=component_path,
+                component_type=component.get("type", "unknown"),
+                suggestion=(
+                    f"Path: {'.'.join(map(str, e.absolute_path))}"
+                    if e.absolute_path
+                    else None
+                ),
+            )
+        )
+        return False
+
+    @staticmethod
+    def _is_linted_component(node: Any, target_component_type: str | None) -> bool:
+        """True if lint_file gives this node its own component lint pass."""
+        comp_type = node.get("type") if isinstance(node, dict) else None
+        return (
+            isinstance(comp_type, str)
+            and comp_type.startswith("ia.")
+            and (
+                not target_component_type or comp_type.startswith(target_component_type)
+            )
+        )
+
+    @classmethod
+    def _linted_on_path(
+        cls, component: dict, nesting: list, target_component_type: str | None
+    ) -> bool:
+        """True if any descendant along ``children.i.children.j...`` is linted."""
+        node: Any = component
+        for index in nesting[1::2]:
+            node = node["children"][index]
+            if cls._is_linted_component(node, target_component_type):
+                return True
+        return False
+
+    @staticmethod
+    def _is_component_type_error(error: ValidationError) -> bool:
+        """True if the error only says a component's ``type`` is not listed.
+
+        Matches ``type`` on the component itself or on a nested child
+        (``children.0.type``), not a prop or binding that happens to be
+        called ``type``.
+        """
+        path = list(error.absolute_path)
+        if error.validator not in ("enum", "pattern") or path[-1:] != ["type"]:
             return False
+        nesting = path[:-1]
+        return len(nesting) % 2 == 0 and all(
+            key == "children" and isinstance(index, int)
+            for key, index in zip(nesting[::2], nesting[1::2], strict=True)
+        )
 
     def check_component_best_practices(
         self, component: dict, file_path: str, component_path: str
@@ -909,6 +1004,9 @@ class IgnitionPerspectiveLinter:
         validator_issues = self.jython_validator.validate_script(
             script_content, context=context
         )
+        # Validator line numbers are script-relative; move them onto the JSON
+        # line holding the script so diagnostics don't scatter across the file.
+        anchor_script_issues(validator_issues, self._script_lines, script_content)
         for issue in validator_issues:
             issue.file_path = file_path
             issue.component_path = f"{component_path}.{prop_name}"
@@ -1247,6 +1345,19 @@ class IgnitionPerspectiveLinter:
                     or script_ref in all_text
                     or binding_target in propconfig_keys
                 )
+
+                # Narrowing only -- this can suppress a finding, never add one.
+                # Per-view the rule has to hedge ("may be set by embedding
+                # views") because it cannot see callers. When a project-wide
+                # index exists the answer is knowable, so a param that some
+                # view demonstrably passes in is not reported at all.
+                if not found and self._embedded_param_usage:
+                    view_key = self._view_key_for(file_path)
+                    if view_key is not None and prop_name in (
+                        self._embedded_param_usage.get(view_key) or set()
+                    ):
+                        found = True
+
                 if not found:
                     self.issues.append(
                         LintIssue(
@@ -1259,6 +1370,232 @@ class IgnitionPerspectiveLinter:
                             suggestion="Params may be set by embedding views; verify before removing",
                         )
                     )
+
+    def _view_key_for(self, file_path: str) -> str | None:
+        """Reverse a view.json path back to its index key, or None."""
+        if not self.view_index:
+            return None
+        resolved = str(Path(file_path).resolve())
+        for key, entry in self.view_index.items():
+            if str(Path(entry["file"]).resolve()) == resolved:
+                return key
+        return None
+
+    # ------------------------------------------------------------------
+    # Cross-view analysis: the embedded-view contract
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _views_root(target_path: str) -> Path | None:
+        """Locate the project's `.../com.inductiveautomation.perspective/views`.
+
+        Searched DOWNWARD from the target, then UPWARD from it. The upward walk
+        is what makes `--target <a single component folder>` still produce a
+        complete index: Perspective addresses views by a path relative to the
+        views root, so an index built from a subtree would hold truncated keys
+        and report every embed in the project as unresolvable.
+        """
+        target = Path(target_path).resolve()
+
+        candidate = target / "com.inductiveautomation.perspective" / "views"
+        if candidate.is_dir():
+            return candidate
+
+        for parent in [target, *target.parents]:
+            if (
+                parent.name == "views"
+                and parent.parent.name == "com.inductiveautomation.perspective"
+            ):
+                return parent
+            candidate = parent / "com.inductiveautomation.perspective" / "views"
+            if candidate.is_dir():
+                return candidate
+        return None
+
+    def build_view_index(self, target_path: str) -> dict[str, dict] | None:
+        """Map each view's Perspective path to the params it declares.
+
+        Keys are exactly what an `ia.display.view` `props.path` holds -- the
+        directory path relative to the views root, forward-slashed, e.g.
+        "Embedded Views/Quality/Components/Chart_Donut".
+
+        Returns None when no views root can be found, which disables the
+        cross-view checks instead of emitting false positives against a
+        half-built index.
+        """
+        views_root = self._views_root(target_path)
+        if views_root is None:
+            self.view_index = None
+            return None
+
+        index: dict[str, dict] = {}
+        for root, _dirs, files in os.walk(views_root):
+            if "view.json" not in files:
+                continue
+            file_path = os.path.join(root, "view.json")
+            try:
+                with open(file_path, encoding="utf-8") as handle:
+                    data = json.load(handle)
+            except (OSError, json.JSONDecodeError):
+                # A malformed view is reported by lint_file's own INVALID_JSON
+                # check; skipping it here keeps one fault from being reported
+                # twice under two different codes.
+                continue
+
+            key = Path(root).relative_to(views_root).as_posix()
+            params = data.get("params")
+            index[key] = {
+                "params": set(params.keys()) if isinstance(params, dict) else set(),
+                "file": file_path,
+            }
+
+        self.view_index = index
+        self._collect_embedded_param_usage(index)
+        return index
+
+    def _collect_embedded_param_usage(self, index: dict[str, dict]) -> None:
+        """Record which params each view is actually given by its embedders.
+
+        This is what lets UNUSED_PARAM_PROPERTY stop hedging. Per-view, that
+        rule cannot see callers, so its own suggestion says "params may be set
+        by embedding views; verify before removing" -- i.e. it reports a
+        maybe. With the whole project in hand the answer is knowable.
+        """
+        usage: dict[str, set[str]] = {}
+        for entry in index.values():
+            try:
+                with open(entry["file"], encoding="utf-8") as handle:
+                    data = json.load(handle)
+            except (OSError, json.JSONDecodeError):
+                continue
+            for embed in self._iter_embedded_views(data.get("root") or {}):
+                path, passed, _bound_path = embed
+                if path:
+                    usage.setdefault(path, set()).update(passed)
+        self._embedded_param_usage = usage
+
+    @staticmethod
+    def _iter_embedded_views(node, results=None):
+        """Yield (path, passed_param_names, path_is_bound) per ia.display.view."""
+        if results is None:
+            results = []
+        if isinstance(node, dict):
+            if node.get("type") == "ia.display.view":
+                props = node.get("props") or {}
+                prop_config = node.get("propConfig") or {}
+
+                passed = set()
+                params = props.get("params")
+                if isinstance(params, dict):
+                    passed.update(params.keys())
+                # Bound params arrive as propConfig["props.params.<name>"], and
+                # only the FIRST segment is the param -- props.params.state.text
+                # targets `state`, not `state.text`.
+                for key in prop_config:
+                    if key.startswith("props.params."):
+                        remainder = key[len("props.params.") :]
+                        if remainder:
+                            passed.add(remainder.split(".")[0])
+
+                path = props.get("path")
+                path_is_bound = "props.path" in prop_config
+                results.append(
+                    (
+                        path if isinstance(path, str) and path else None,
+                        passed,
+                        path_is_bound,
+                    )
+                )
+            for value in node.values():
+                IgnitionPerspectiveLinter._iter_embedded_views(value, results)
+        elif isinstance(node, list):
+            for value in node:
+                IgnitionPerspectiveLinter._iter_embedded_views(value, results)
+        return results
+
+    def _check_embedded_views(self, view_data: dict, file_path: str):
+        """Validate every ia.display.view against the view it embeds.
+
+        Two silent runtime failures live here, and neither is visible inside a
+        single view.json:
+
+        * a `path` that resolves to nothing renders an EMPTY BOX -- no error,
+          no log line, just a gap where a component should be;
+        * a param the target does not declare is DROPPED on the way in, so the
+          child renders with its defaults and looks merely misconfigured.
+        """
+        if self.view_index is None:
+            return
+
+        for path, passed, path_is_bound in self._iter_embedded_views(
+            view_data.get("root") or {}
+        ):
+            if path_is_bound and not path:
+                self.issues.append(
+                    LintIssue(
+                        severity=LintSeverity.INFO,
+                        code="EMBED_DYNAMIC_PATH",
+                        message=(
+                            "Embedded view path is bound, so its param contract "
+                            "cannot be checked statically"
+                        ),
+                        file_path=file_path,
+                        component_path="ia.display.view",
+                        component_type="ia.display.view",
+                        suggestion=(
+                            "A bound path is a legitimate slot pattern. Nothing "
+                            "can verify the params it receives, so check the "
+                            "callers that supply the path by hand."
+                        ),
+                    )
+                )
+                continue
+
+            if not path:
+                continue
+
+            target = self.view_index.get(path)
+            if target is None:
+                self.issues.append(
+                    LintIssue(
+                        severity=LintSeverity.ERROR,
+                        code="EMBED_VIEW_NOT_FOUND",
+                        message=f"Embedded view '{path}' does not exist",
+                        file_path=file_path,
+                        component_path="ia.display.view",
+                        component_type="ia.display.view",
+                        suggestion=(
+                            "Paths are relative to the views root and are "
+                            "case-sensitive, e.g. "
+                            "'Embedded Views/Quality/Components/Chart_Donut'. "
+                            "An unresolvable path renders an empty box with no "
+                            "error."
+                        ),
+                    )
+                )
+                continue
+
+            undeclared = sorted(passed - target["params"])
+            for name in undeclared:
+                self.issues.append(
+                    LintIssue(
+                        severity=LintSeverity.ERROR,
+                        code="EMBED_PARAM_NOT_DECLARED",
+                        message=(
+                            f"Param '{name}' is passed to '{path}', which does "
+                            "not declare it"
+                        ),
+                        file_path=file_path,
+                        component_path=f"ia.display.view.params.{name}",
+                        component_type="ia.display.view",
+                        suggestion=(
+                            f"Add '{name}' to the params of '{path}', or remove "
+                            "it here. Undeclared params are silently dropped, so "
+                            "the embedded view renders with its defaults and "
+                            "looks misconfigured rather than broken."
+                        ),
+                    )
+                )
 
     def _check_param_directions(self, view_data: dict, file_path: str):
         """Check that view params have explicit paramDirection in propConfig.
@@ -1710,6 +2047,7 @@ class IgnitionPerspectiveLinter:
             with open(file_path, encoding="utf-8") as f:
                 raw_text = f.read()
             view_data = json.loads(raw_text)
+            self._script_lines = ScriptLineIndex(raw_text.splitlines())
         except json.JSONDecodeError as e:
             self.issues.append(
                 LintIssue(
@@ -1792,7 +2130,7 @@ class IgnitionPerspectiveLinter:
 
             # Schema validation
             is_valid = self.validate_component_schema(
-                component, file_path, component_path
+                component, file_path, component_path, target_component_type
             )
             if is_valid:
                 self.component_stats["valid_components"] += 1
@@ -1811,6 +2149,10 @@ class IgnitionPerspectiveLinter:
 
         # Check that params have explicit paramDirection in propConfig
         self._check_param_directions(view_data, file_path)
+
+        # Validate embedded views against the views they embed (cross-view;
+        # a no-op unless build_view_index() has run)
+        self._check_embedded_views(view_data, file_path)
 
         # Validate binding paths against view structure (Tier 2 & 3)
         self._validate_binding_paths(view_data, file_path)
@@ -1846,6 +2188,17 @@ class IgnitionPerspectiveLinter:
             return {"success": False, "message": "No view files found"}
 
         print(f"📁 Found {len(view_files)} view files", file=sys.stderr)
+
+        # Built BEFORE the per-file loop: the embedded-view checks need every
+        # view's declared params available while linting the first file, and
+        # UNUSED_PARAM_PROPERTY needs to know who embeds what.
+        index = self.build_view_index(target_path)
+        if index is None:
+            print(
+                "⚠️  No com.inductiveautomation.perspective/views root found; "
+                "skipping cross-view checks.",
+                file=sys.stderr,
+            )
 
         self.component_stats["total_files"] = len(view_files)
         valid_files = 0

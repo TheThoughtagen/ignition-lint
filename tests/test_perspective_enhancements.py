@@ -1438,3 +1438,182 @@ class TestEventWrongCategory:
         assert len(matching) == 2
         event_names = {m.message.split("'")[1] for m in matching}
         assert event_names == {"onStartup", "onShutdown"}
+
+
+def _lint_project_views(tmp_path, views):
+    """Helper: build a real views tree and lint it as a project.
+
+    Cross-view rules cannot use _lint_view -- they need the
+    com.inductiveautomation.perspective/views root that Perspective paths are
+    relative to, and they need more than one view to relate.
+
+    `views` maps a Perspective path ("Embedded Views/Foo") to view JSON.
+    """
+    root = tmp_path / "Proj" / "com.inductiveautomation.perspective" / "views"
+    for view_path, data in views.items():
+        target = root / view_path
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "view.json").write_text(json.dumps(data))
+
+    linter = IgnitionPerspectiveLinter()
+    linter.lint_project(str(tmp_path / "Proj"))
+    return linter
+
+
+_FLEX_ROOT = {"type": "ia.container.flex", "meta": {"name": "Root"}, "children": []}
+
+
+def _embedder(path, params=None, prop_config=None):
+    """A view whose root holds one ia.display.view."""
+    embed = {
+        "type": "ia.display.view",
+        "meta": {"name": "Embed"},
+        "position": {"basis": "100px"},
+        "props": {"path": path, "params": params or {}},
+    }
+    if prop_config:
+        embed["propConfig"] = prop_config
+    return {
+        "custom": {},
+        "params": {},
+        "root": {**_FLEX_ROOT, "children": [embed]},
+    }
+
+
+class TestEmbeddedViewContract:
+    """Tests for EMBED_VIEW_NOT_FOUND / EMBED_PARAM_NOT_DECLARED / EMBED_DYNAMIC_PATH."""
+
+    def test_missing_target_view_is_an_error(self, tmp_path):
+        """An unresolvable path renders an empty box with no runtime error."""
+        linter = _lint_project_views(
+            tmp_path, {"Main/Home": _embedder("Embedded Views/DoesNotExist")}
+        )
+        matching = [i for i in linter.issues if i.code == "EMBED_VIEW_NOT_FOUND"]
+        assert len(matching) == 1
+        assert "Embedded Views/DoesNotExist" in matching[0].message
+        assert matching[0].severity.value == "error"
+
+    def test_resolvable_target_is_clean(self, tmp_path):
+        linter = _lint_project_views(
+            tmp_path,
+            {
+                "Main/Home": _embedder("Components/Tile"),
+                "Components/Tile": {
+                    "custom": {},
+                    "params": {"title": ""},
+                    "root": _FLEX_ROOT,
+                },
+            },
+        )
+        assert "EMBED_VIEW_NOT_FOUND" not in _codes(linter.issues)
+
+    def test_undeclared_param_is_an_error(self, tmp_path):
+        """Params the target does not declare are silently dropped at runtime."""
+        linter = _lint_project_views(
+            tmp_path,
+            {
+                "Main/Home": _embedder(
+                    "Components/Tile", params={"title": "Yield", "subtitle": "7d"}
+                ),
+                "Components/Tile": {
+                    "custom": {},
+                    "params": {"title": ""},
+                    "root": _FLEX_ROOT,
+                },
+            },
+        )
+        matching = [i for i in linter.issues if i.code == "EMBED_PARAM_NOT_DECLARED"]
+        assert len(matching) == 1
+        assert "'subtitle'" in matching[0].message
+        assert matching[0].severity.value == "error"
+
+    def test_bound_param_uses_first_segment_only(self, tmp_path):
+        """props.params.state.text targets the param `state`, not `state.text`."""
+        linter = _lint_project_views(
+            tmp_path,
+            {
+                "Main/Home": _embedder(
+                    "Components/Tile",
+                    prop_config={
+                        "props.params.state.text": {
+                            "binding": {
+                                "type": "property",
+                                "config": {"path": "view.custom.Msg"},
+                            }
+                        }
+                    },
+                ),
+                "Components/Tile": {
+                    "custom": {},
+                    "params": {"state": {}},
+                    "root": _FLEX_ROOT,
+                },
+            },
+        )
+        assert "EMBED_PARAM_NOT_DECLARED" not in _codes(linter.issues)
+
+    def test_bound_undeclared_param_is_caught(self, tmp_path):
+        linter = _lint_project_views(
+            tmp_path,
+            {
+                "Main/Home": _embedder(
+                    "Components/Tile",
+                    prop_config={
+                        "props.params.footer": {
+                            "binding": {
+                                "type": "property",
+                                "config": {"path": "view.custom.Foot"},
+                            }
+                        }
+                    },
+                ),
+                "Components/Tile": {
+                    "custom": {},
+                    "params": {"state": {}},
+                    "root": _FLEX_ROOT,
+                },
+            },
+        )
+        matching = [i for i in linter.issues if i.code == "EMBED_PARAM_NOT_DECLARED"]
+        assert len(matching) == 1
+        assert "'footer'" in matching[0].message
+
+    def test_bound_path_reports_info_not_error(self, tmp_path):
+        """A slot -- legitimate, and not statically checkable."""
+        embed = _embedder("")
+        embed["root"]["children"][0]["propConfig"] = {
+            "props.path": {
+                "binding": {"type": "property", "config": {"path": "view.params.body"}}
+            }
+        }
+        linter = _lint_project_views(tmp_path, {"Main/Home": embed})
+        codes = _codes(linter.issues)
+        assert "EMBED_DYNAMIC_PATH" in codes
+        assert "EMBED_VIEW_NOT_FOUND" not in codes
+        matching = [i for i in linter.issues if i.code == "EMBED_DYNAMIC_PATH"]
+        assert matching[0].severity.value == "info"
+
+    def test_single_file_lint_skips_cross_view_checks(self):
+        """Without an index the checks are skipped, not guessed at."""
+        issues = _lint_view(_embedder("Components/NopeDoesNotExist"))
+        assert "EMBED_VIEW_NOT_FOUND" not in _codes(issues)
+
+    def test_unused_param_suppressed_when_an_embedder_supplies_it(self, tmp_path):
+        """The narrowing: a param no one references in-view but a caller passes."""
+        linter = _lint_project_views(
+            tmp_path,
+            {
+                "Main/Home": _embedder("Components/Tile", params={"title": "Yield"}),
+                "Components/Tile": {
+                    "custom": {},
+                    "params": {"title": ""},
+                    "root": _FLEX_ROOT,
+                },
+            },
+        )
+        unused = [
+            i
+            for i in linter.issues
+            if i.code == "UNUSED_PARAM_PROPERTY" and "Tile" in i.file_path
+        ]
+        assert unused == []
