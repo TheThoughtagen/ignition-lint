@@ -161,7 +161,7 @@ jobs:
           ignore_codes: "NAMING_PARAMETER"  # Suppress during migration
 ```
 
-[Full Action documentation →](https://TheThoughtagen.github.io/ignition-lint/integration/github-actions)
+[Full Action documentation →](https://TheThoughtagen.github.io/ignition-lint/docs/integration/github-actions)
 
 ### 🪝 Pre-commit hooks
 
@@ -176,7 +176,7 @@ repos:
       - id: ignition-perspective-lint
 ```
 
-[Pre-commit guide →](https://TheThoughtagen.github.io/ignition-lint/integration/pre-commit)
+[Pre-commit guide →](https://TheThoughtagen.github.io/ignition-lint/docs/integration/pre-commit)
 
 ### 🤖 MCP server (AI agents)
 
@@ -207,7 +207,7 @@ Use with language servers for real-time feedback. See [Editor Integration Guide]
 
 ## Documentation
 
-Full documentation at [TheThoughtagen.github.io/ignition-lint](https://TheThoughtagen.github.io/ignition-lint/):
+Full documentation at [TheThoughtagen.github.io/ignition-lint](https://TheThoughtagen.github.io/ignition-lint/docs/):
 
 - [Installation](https://TheThoughtagen.github.io/ignition-lint/getting-started/installation)
 - [Basic usage](https://TheThoughtagen.github.io/ignition-lint/getting-started/basic-usage)
